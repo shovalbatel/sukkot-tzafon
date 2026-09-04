@@ -352,8 +352,19 @@ form.add button{
 
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-<script src="config.js"></script>
-<script src="seed.js"></script>
+<script>
+window.BUILD = "2026-09-04c";
+window.FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCIB2FRO9r6io9QVinFpnAsADdgihsb26E",
+  authDomain: "sukkot-tzafon-2026.firebaseapp.com",
+  databaseURL: "https://sukkot-tzafon-2026-default-rtdb.firebaseio.com",
+  projectId: "sukkot-tzafon-2026",
+  storageBucket: "sukkot-tzafon-2026.firebasestorage.app",
+  messagingSenderId: "149436054332",
+  appId: "1:149436054332:web:b023e4aa8955c76f14bc39"
+};
+</script>
+<script src="seed.js?v=2"></script>
 <script>
 document.documentElement.setAttribute("lang","he");
 document.documentElement.setAttribute("dir","rtl");
@@ -552,7 +563,10 @@ function skeleton(){
   return '<div class="card">'+Array(6).fill('<div class="skel"></div>').join("")+"</div>";
 }
 function offNotice(){
-  return '<div class="notice"><b>הרשימה נשמרת כרגע רק במכשיר הזה.</b> ברגע שנחבר את המסד המשותף, כל מי שפותח את הקישור יראה את אותם עדכונים בזמן אמת — והרשימה שלמטה תעבור לשם.</div>';
+  return '<div class="notice"><b>אין כרגע חיבור לרשימה המשותפת</b> — מה שתסמנו נשמר רק במכשיר הזה. '+
+    'זה קורה כשהדפדפן שמר גרסה ישנה של האתר, או כשאין אינטרנט. '+
+    '<button class="chip" data-act="reconnect" style="margin-inline-start:8px">רענון וחיבור מחדש</button>'+
+    '<span class="hint" style="display:block;margin-top:6px">גרסה '+esc(window.BUILD||"?")+'</span></div>';
 }
 
 function tripBar(){
@@ -746,6 +760,7 @@ view.addEventListener("click",e=>{
     toast(ids.length+" פריטים שויכו לרשימת הקנייה המשותפת","ביטול",()=>{ ids.forEach(x=>{ const it=items.get(x); if(it){it.b="";upItem(x,{b:""});} }); render(); });
   }
   else if(act==="goshop"){ setTab("shop"); who="shop"; shopFilter="all"; render(); }
+  else if(act==="reconnect"){ location.replace(location.pathname+"?r="+Date.now()); }
 });
 
 view.addEventListener("change",e=>{
@@ -813,10 +828,13 @@ function initPresence(){
   });
 }
 
-(function boot(){
+function boot(tries){
   const cfg=window.FIREBASE_CONFIG;
-  const ready = cfg && cfg.databaseURL && cfg.databaseURL.indexOf("PASTE_")<0 && typeof firebase!=="undefined";
-  if(!ready){ goLocal(); return; }
+  if(!cfg||!cfg.databaseURL||cfg.databaseURL.indexOf("PASTE_")>=0){ goLocal(); return; }
+  if(typeof firebase==="undefined"){
+    if(tries<20){ setTimeout(()=>boot(tries+1),500); return; }
+    goLocal(); return;
+  }
   try{
     firebase.initializeApp(cfg);
     fdb=firebase.database();
@@ -835,8 +853,9 @@ function initPresence(){
     initPresence();
     paintPresence(null);
   }catch(e){ console.warn(e); goLocal(); }
-})();
-setTimeout(()=>{ if(dbState==="loading") goLocal(); },12000);
+}
+boot(0);
+setTimeout(()=>{ if(dbState==="loading" && !fdb) goLocal(); },15000);
 render();
 </script>
 
