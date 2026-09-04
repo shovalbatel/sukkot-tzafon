@@ -272,6 +272,16 @@ form.add button{
   padding:10px 15px; border-bottom:1px solid var(--line); background:var(--surface);
   font-size:12.5px; color:var(--ink-3);
 }
+.chefline.mealedit{gap:6px 16px; background:var(--surface-2)}
+.chefline.mealedit label{
+  font-size:10.5px; letter-spacing:.1em; text-transform:uppercase;
+  font-weight:700; color:var(--ink-3);
+}
+.chefline.mealedit input{
+  border:0; border-bottom:1px dashed var(--line-2); background:transparent;
+  padding:3px 2px; font-size:13.5px; font-weight:600; min-width:110px; flex:1 1 160px;
+}
+.chefline.mealedit input:hover{border-bottom-color:var(--accent)}
 .chefline select{
   background:var(--surface-2); border:1px solid var(--line-2); border-radius:999px;
   padding:4px 11px; font-size:12.5px; font-weight:600;
@@ -383,7 +393,7 @@ form.add button{
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 <script>
-window.BUILD = "2026-09-04g";
+window.BUILD = "2026-09-04h";
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyCIB2FRO9r6io9QVinFpnAsADdgihsb26E",
   authDomain: "sukkot-tzafon-2026.firebaseapp.com",
@@ -469,7 +479,8 @@ const view=document.getElementById("view");
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const arr=()=>[...items.values()].sort((a,b)=>(a.o||0)-(b.o||0));
 const shopAll=()=>arr().filter(i=>i.c!=="personal"&&i.s!=="home");
-const mealName=k=>MEALBY[k]?MEALBY[k].n:"";
+const mealName=k=>{ const d=mealDocs[k]||{}; return (d.n!==undefined&&d.n!=="")?d.n:(MEALBY[k]?MEALBY[k].n:""); };
+const mealSub =k=>{ const d=mealDocs[k]||{}; return d.sub!==undefined?d.sub:(MEALBY[k]?MEALBY[k].sub:""); };
 const catName=k=>CATBY[k]||k;
 const newId=()=>"x"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 
@@ -646,9 +657,15 @@ function renderMeals(){
       h+='<section class="card'+(m.chag?" chag":"")+'" data-open="'+(isOpen(id)?1:0)+'">'+
         foldHead(id,
           "<span><span class=\"eyebrow\">"+esc(m.when)+(m.chag?" · ארוחת החג":"")+"</span>"+
-          "<h3>"+esc(m.n)+"</h3><div class=\"sub\">"+esc(m.sub)+"</div></span>"+
+          "<h3>"+esc(mealName(mk))+"</h3>"+(mealSub(mk)?'<div class="sub">'+esc(mealSub(mk))+"</div>":"")+"</span>"+
           '<span class="meta">'+barHTML(done,list.length)+"</span>")+
         '<div class="c-body">'+
+          '<div class="chefline mealedit">'+
+            '<label for="mn-'+mk+'">שם הארוחה</label>'+
+            '<input id="mn-'+mk+'" data-fid="mn-'+mk+'" data-mfield="n" data-key="'+mk+'" value="'+esc(mealName(mk))+'" aria-label="שם הארוחה">'+
+            '<label for="ms-'+mk+'">נושא הארוחה</label>'+
+            '<input id="ms-'+mk+'" data-fid="ms-'+mk+'" data-mfield="sub" data-key="'+mk+'" value="'+esc(mealSub(mk))+'" placeholder="במה מדובר, בשורה אחת" aria-label="נושא הארוחה">'+
+          "</div>"+
           '<div class="chefline"><span>אחראים על הארוחה:</span>'+
             '<select data-act="chef" data-key="'+mk+'" aria-label="אחראים על '+esc(m.n)+'"><option value="">עדיין לא סוכם</option>'+
             FAMS.map(f=>'<option value="'+f.k+'"'+(md.chef===f.k?" selected":"")+">"+esc(f.n)+"</option>").join("")+"</select>"+
@@ -874,6 +891,12 @@ view.addEventListener("input",e=>{
   if(el.dataset.editfield){ if(el.dataset.editfield==="t") editT=el.value; else editQ=el.value; return; }
   if(el.id==="sq"){ q=el.value; clearTimeout(tmr); tmr=setTimeout(render,180); return; }
   if(el.dataset.trip!=null&&el.dataset.trip!==""){ const f=el.dataset.trip,v=el.value; trip=Object.assign({},trip,{[f]:v}); clearTimeout(tmr); tmr=setTimeout(()=>{setTrip({[f]:v}); paintHeader();},500); return; }
+  if(el.dataset.mfield){
+    const k=el.dataset.key, f=el.dataset.mfield, v=el.value;
+    mealDocs[k]=Object.assign({},mealDocs[k],{[f]:v});
+    clearTimeout(tmr); tmr=setTimeout(()=>setMeal(k,{[f]:v}),500);
+    return;
+  }
   if(el.dataset.mnote){ const k=el.dataset.mnote,v=el.value; mealDocs[k]=Object.assign({},mealDocs[k],{note:v}); clearTimeout(tmr); tmr=setTimeout(()=>setMeal(k,{note:v}),500); }
 });
 
