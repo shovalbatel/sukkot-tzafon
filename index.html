@@ -210,6 +210,25 @@ select.buyer.set{border-style:solid}
 .row:hover .kill, .kill:focus-visible{opacity:1}
 .kill:hover{color:var(--warn); background:var(--surface-3)}
 
+/* ---------- inline edit ---------- */
+.name[data-act="edit"], .qty[data-act="edit"]{cursor:text; border-radius:4px}
+.name[data-act="edit"]:hover, .qty[data-act="edit"]:hover{
+  background:var(--surface-3); box-shadow:0 0 0 3px var(--surface-3);
+}
+.row.editing{display:flex; align-items:center; background:var(--accent-soft); padding:9px 15px}
+form.editform{display:flex; align-items:center; gap:8px; width:100%; flex-wrap:wrap}
+form.editform input{
+  border:1px solid var(--line-2); background:var(--surface); border-radius:7px;
+  padding:6px 9px; font-size:13.5px; min-width:0;
+}
+form.editform input.q{width:88px; flex:none; font-variant-numeric:tabular-nums}
+form.editform input.t{flex:1 1 150px}
+form.editform button{
+  border:1px solid var(--accent); background:var(--accent); color:var(--on-accent);
+  border-radius:7px; padding:6px 14px; font-size:13px; font-weight:700; flex:none;
+}
+form.editform button.ghost{background:transparent; color:var(--ink-2); border-color:var(--line-2)}
+
 #toast{
   position:fixed; left:50%; bottom:20px; z-index:60;
   transform:translateX(-50%) translateY(160%); transition:transform .22s ease;
@@ -353,7 +372,7 @@ form.add button{
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 <script>
-window.BUILD = "2026-09-04c";
+window.BUILD = "2026-09-04d";
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyCIB2FRO9r6io9QVinFpnAsADdgihsb26E",
   authDomain: "sukkot-tzafon-2026.firebaseapp.com",
@@ -416,6 +435,7 @@ let dbState="loading";
 let items=new Map(), mealDocs={}, trip={};
 let me=""; try{me=localStorage.getItem("sk-fam")||"";}catch(e){}
 let tab="meals", shopFilter="todo", who="", q="";
+let editing=null, editT="", editQ="";
 const folded={};
 let pending=false;
 
@@ -529,12 +549,22 @@ function srcBtn(it){
   const home=it.s==="home";
   return '<button class="tag'+(home?" home":"")+'" data-act="src" data-id="'+it.id+'" title="להחליף בין קנייה לבין הבאה מהבית">'+(home?"מהבית":"לקנות")+"</button>";
 }
+function editRowHTML(it){
+  return '<li class="row editing" data-id="'+it.id+'">'+
+    '<form class="editform" data-edit="'+it.id+'">'+
+      '<input class="q" data-editfield="q" data-fid="editq-'+it.id+'" value="'+esc(editQ)+'" placeholder="כמות" aria-label="כמות" autocomplete="off">'+
+      '<input class="t" data-editfield="t" data-fid="editt-'+it.id+'" value="'+esc(editT)+'" aria-label="שם הפריט" autocomplete="off" required>'+
+      "<button>שמירה</button>"+
+      '<button type="button" class="ghost" data-act="canceledit">ביטול</button>'+
+    "</form></li>";
+}
 function rowHTML(it,o){
   o=o||{};
+  if(editing===it.id) return editRowHTML(it);
   return '<li class="row'+(it.d?" done":"")+'" data-id="'+it.id+'">'+
     '<button class="tick" data-act="toggle" data-id="'+it.id+'" aria-pressed="'+(it.d?"true":"false")+'" aria-label="סימון '+esc(it.t)+'">✓</button>'+
-    '<span class="qty num">'+esc(it.q||"")+"</span>"+
-    '<span class="name">'+esc(it.t)+(o.showMeal&&it.m?'<span class="sub">'+esc(mealName(it.m))+"</span>":"")+"</span>"+
+    '<span class="qty num" data-act="edit" data-id="'+it.id+'" role="button" tabindex="0" title="לחצו לעריכה">'+esc(it.q||"")+"</span>"+
+    '<span class="name" data-act="edit" data-id="'+it.id+'" role="button" tabindex="0" title="לחצו לעריכת השם והכמות">'+esc(it.t)+(o.showMeal&&it.m?'<span class="sub">'+esc(mealName(it.m))+"</span>":"")+"</span>"+
     '<span class="tags">'+
       (o.srcToggle?srcBtn(it):(it.s==="home"?'<span class="tag home">מהבית</span>':""))+
       (o.showCat?'<span class="tag">'+esc(catName(it.c))+"</span>":"")+
@@ -634,7 +664,7 @@ function renderShop(){
   h+="<b>הקנייה המשותפת בבוקר חמישי:</b> "+shopLeft+" פריטים נותרו מתוך "+shopTot+". ";
   if(me) h+="<b>"+esc(FAMBY[me].n)+"</b> מביאה בעצמה עוד <b>"+myLeft+"</b> פריטים. ";
   else h+="בחרו את המשפחה שלכם למעלה כדי לראות מה אתם מביאים. ";
-  h+="עדיין ללא שיוך: <b>"+unassigned+"</b>. סמנו ✓ ברגע שנקנה — כולם רואים מיד.</div>";
+  h+="עדיין ללא שיוך: <b>"+unassigned+"</b>. סמנו ✓ ברגע שנקנה — כולם רואים מיד, ולחיצה על שם פריט או על הכמות פותחת אותם לעריכה.</div>";
 
   CATS.forEach(([ck,cn])=>{
     if(ck==="task") return;
@@ -761,7 +791,20 @@ view.addEventListener("click",e=>{
   }
   else if(act==="goshop"){ setTab("shop"); who="shop"; shopFilter="all"; render(); }
   else if(act==="reconnect"){ location.replace(location.pathname+"?r="+Date.now()); }
+  else if(act==="edit"){
+    const it=items.get(id); if(!it) return;
+    editing=id; editT=it.t||""; editQ=it.q||""; render();
+    const inp=view.querySelector('[data-fid="editt-'+id+'"]');
+    if(inp){ inp.focus(); try{ inp.setSelectionRange(inp.value.length,inp.value.length); }catch(e){} }
+  }
+  else if(act==="canceledit"){ editing=null; render(); }
 });
+
+view.addEventListener("keydown",e=>{
+  const t=e.target;
+  if(t&&t.dataset&&t.dataset.act==="edit"&&(e.key==="Enter"||e.key===" ")){ e.preventDefault(); t.click(); }
+});
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&editing){ editing=null; render(); } });
 
 view.addEventListener("change",e=>{
   const el=e.target, act=el.dataset.act;
@@ -783,12 +826,23 @@ view.addEventListener("change",e=>{
 let tmr=null;
 view.addEventListener("input",e=>{
   const el=e.target;
+  if(el.dataset.editfield){ if(el.dataset.editfield==="t") editT=el.value; else editQ=el.value; return; }
   if(el.id==="sq"){ q=el.value; clearTimeout(tmr); tmr=setTimeout(render,180); return; }
   if(el.dataset.trip!=null&&el.dataset.trip!==""){ const f=el.dataset.trip,v=el.value; trip=Object.assign({},trip,{[f]:v}); clearTimeout(tmr); tmr=setTimeout(()=>{setTrip({[f]:v}); paintHeader();},500); return; }
   if(el.dataset.mnote){ const k=el.dataset.mnote,v=el.value; mealDocs[k]=Object.assign({},mealDocs[k],{note:v}); clearTimeout(tmr); tmr=setTimeout(()=>setMeal(k,{note:v}),500); }
 });
 
 view.addEventListener("submit",e=>{
+  const ef=e.target.closest("form.editform");
+  if(ef){
+    e.preventDefault();
+    const id=ef.dataset.edit, it=items.get(id);
+    const t=editT.trim(), qv=editQ.trim();
+    editing=null;
+    if(it&&t&&(t!==it.t||qv!==(it.q||""))){ it.t=t; it.q=qv; upItem(id,{t:t,q:qv}); }
+    render();
+    return;
+  }
   const f=e.target.closest("form.add"); if(!f) return;
   e.preventDefault();
   const t=f.querySelector("input.t").value.trim(); if(!t) return;
