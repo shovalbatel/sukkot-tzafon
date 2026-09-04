@@ -239,7 +239,16 @@ select.buyer.set{border-style:solid}
   background:var(--surface-3); box-shadow:0 0 0 3px var(--surface-3);
 }
 .row.editing{display:flex; align-items:center; background:var(--accent-soft); padding:9px 15px}
-form.editform{display:flex; align-items:center; gap:8px; width:100%; flex-wrap:wrap}
+form.editform{display:flex; flex-direction:column; gap:8px; width:100%}
+form.editform .ef-line{display:flex; align-items:center; gap:8px; width:100%; flex-wrap:wrap}
+form.editform label{
+  display:flex; align-items:center; gap:6px; flex:1 1 170px; min-width:0;
+  font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; font-weight:700; color:var(--ink-3);
+}
+form.editform select{
+  flex:1 1 auto; min-width:0; border:1px solid var(--line-2); background:var(--surface);
+  border-radius:7px; padding:6px 9px; font-size:13px; font-weight:600; color:var(--ink);
+}
 form.editform input{
   border:1px solid var(--line-2); background:var(--surface); border-radius:7px;
   padding:6px 9px; font-size:13.5px; min-width:0;
@@ -403,7 +412,7 @@ form.add button{
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 <script>
-window.BUILD = "2026-09-04j";
+window.BUILD = "2026-09-04k";
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyCIB2FRO9r6io9QVinFpnAsADdgihsb26E",
   authDomain: "sukkot-tzafon-2026.firebaseapp.com",
@@ -467,7 +476,7 @@ let dbState="loading";
 let items=new Map(), mealDocs={}, trip={};
 let me=""; try{me=localStorage.getItem("sk-fam")||"";}catch(e){}
 let tab="meals", shopFilter="todo", who="", q="";
-let editing=null, editT="", editQ="";
+let editing=null, editT="", editQ="", editC="", editM="";
 let editingMeal=null, editMN="", editMS="";
 let openSecs={};
 try{ openSecs=JSON.parse(localStorage.getItem("sk-open")||"{}")||{}; }catch(e){ openSecs={}; }
@@ -598,12 +607,25 @@ function srcBtn(it){
   return '<button class="tag'+(home?" home":"")+'" data-act="src" data-id="'+it.id+'" title="להחליף בין קנייה לבין הבאה מהבית">'+(home?"מהבית":"לקנות")+"</button>";
 }
 function editRowHTML(it){
+  const personal=it.c==="personal";
   return '<li class="row editing" data-id="'+it.id+'">'+
     '<form class="editform" data-edit="'+it.id+'">'+
-      '<input class="q" data-editfield="q" data-fid="editq-'+it.id+'" value="'+esc(editQ)+'" placeholder="כמות" aria-label="כמות" autocomplete="off">'+
-      '<input class="t" data-editfield="t" data-fid="editt-'+it.id+'" value="'+esc(editT)+'" aria-label="שם הפריט" autocomplete="off" required>'+
-      "<button>שמירה</button>"+
-      '<button type="button" class="ghost" data-act="canceledit">ביטול</button>'+
+      '<div class="ef-line">'+
+        '<input class="q" data-editfield="q" data-fid="editq-'+it.id+'" value="'+esc(editQ)+'" placeholder="כמות" aria-label="כמות" autocomplete="off">'+
+        '<input class="t" data-editfield="t" data-fid="editt-'+it.id+'" value="'+esc(editT)+'" aria-label="שם הפריט" autocomplete="off" required>'+
+      "</div>"+
+      '<div class="ef-line">'+
+        (personal?"":
+          '<label>מדף<select data-editfield="c" aria-label="קטגוריה">'+
+            CATS.map(c=>'<option value="'+c[0]+'"'+(editC===c[0]?" selected":"")+">"+esc(c[1])+"</option>").join("")+
+          "</select></label>"+
+          '<label>ארוחה<select data-editfield="m" aria-label="שיוך לארוחה">'+
+            '<option value=""'+(editM?"":" selected")+">לא שייך לארוחה</option>"+
+            MEALS.map(m=>'<option value="'+m.k+'"'+(editM===m.k?" selected":"")+">"+esc(mealName(m.k))+"</option>").join("")+
+          "</select></label>")+
+        "<button>שמירה</button>"+
+        '<button type="button" class="ghost" data-act="canceledit">ביטול</button>'+
+      "</div>"+
     "</form></li>";
 }
 function rowHTML(it,o){
@@ -873,7 +895,7 @@ view.addEventListener("click",e=>{
   else if(act==="reconnect"){ location.replace(location.pathname+"?r="+Date.now()); }
   else if(act==="edit"){
     const it=items.get(id); if(!it) return;
-    editing=id; editT=it.t||""; editQ=it.q||""; render();
+    editing=id; editT=it.t||""; editQ=it.q||""; editC=it.c||"dry"; editM=it.m||""; render();
     const inp=view.querySelector('[data-fid="editt-'+id+'"]');
     if(inp){ inp.focus(); try{ inp.setSelectionRange(inp.value.length,inp.value.length); }catch(e){} }
   }
@@ -895,6 +917,11 @@ document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&(editing||editingM
 
 view.addEventListener("change",e=>{
   const el=e.target, act=el.dataset.act;
+  if(el.dataset.editfield){
+    if(el.dataset.editfield==="c") editC=el.value;
+    else if(el.dataset.editfield==="m") editM=el.value;
+    return;
+  }
   if(act==="buyer"){ const it=items.get(el.dataset.id); if(!it) return; it.b=el.value; render(); upItem(it.id,{b:it.b}); }
   else if(act==="chef"){ const k=el.dataset.key; mealDocs[k]=Object.assign({},mealDocs[k],{chef:el.value}); render(); setMeal(k,{chef:el.value}); }
   else if(act==="bulk"){
@@ -946,7 +973,16 @@ view.addEventListener("submit",e=>{
     const id=ef.dataset.edit, it=items.get(id);
     const t=editT.trim(), qv=editQ.trim();
     editing=null;
-    if(it&&t&&(t!==it.t||qv!==(it.q||""))){ it.t=t; it.q=qv; upItem(id,{t:t,q:qv}); }
+    if(it&&t){
+      const patch={};
+      if(t!==it.t) patch.t=t;
+      if(qv!==(it.q||"")) patch.q=qv;
+      if(it.c!=="personal"){
+        if(editC&&editC!==it.c) patch.c=editC;
+        if(editM!==(it.m||"")) patch.m=editM;
+      }
+      if(Object.keys(patch).length){ Object.assign(it,patch); upItem(id,patch); }
+    }
     render();
     return;
   }
