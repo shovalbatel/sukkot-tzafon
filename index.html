@@ -372,7 +372,7 @@ form.add button{
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 <script>
-window.BUILD = "2026-09-04d";
+window.BUILD = "2026-09-04e";
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyCIB2FRO9r6io9QVinFpnAsADdgihsb26E",
   authDomain: "sukkot-tzafon-2026.firebaseapp.com",
@@ -436,7 +436,21 @@ let items=new Map(), mealDocs={}, trip={};
 let me=""; try{me=localStorage.getItem("sk-fam")||"";}catch(e){}
 let tab="meals", shopFilter="todo", who="", q="";
 let editing=null, editT="", editQ="";
-const folded={};
+let openSecs={};
+try{ openSecs=JSON.parse(localStorage.getItem("sk-open")||"{}")||{}; }catch(e){ openSecs={}; }
+function saveOpen(){ try{ localStorage.setItem("sk-open",JSON.stringify(openSecs)); }catch(e){} }
+let forceOpen=false;
+const isOpen=id=>forceOpen||!!openSecs[id];
+function secIds(){
+  if(tab==="meals") return MEALS.map(m=>"meal-"+m.k);
+  if(tab==="shop")  return CATS.filter(c=>c[0]!=="task").map(c=>"shop-"+c[0]);
+  if(tab==="gear")  return GEARCATS.map(c=>"gear-"+c);
+  return [];
+}
+const anyOpen=()=>secIds().some(id=>openSecs[id]);
+function openAllBtn(){
+  return '<button class="chip" data-act="openall">'+(anyOpen()?"סגרו הכל":"פתחו הכל")+"</button>";
+}
 let pending=false;
 
 const view=document.getElementById("view");
@@ -584,7 +598,7 @@ function addForm(kind,key,ph){
     "<button>הוספה</button></form>";
 }
 function foldHead(id,inner){
-  return '<button class="c-head" data-act="fold" data-sec="'+id+'" aria-expanded="'+(folded[id]?"false":"true")+'">'+inner+'<span class="caret">▾</span></button>';
+  return '<button class="c-head" data-act="fold" data-sec="'+id+'" aria-expanded="'+(isOpen(id)?"true":"false")+'">'+inner+'<span class="caret">▾</span></button>';
 }
 </script>
 <script>
@@ -608,7 +622,8 @@ function tripBar(){
 }
 
 function renderMeals(){
-  let h=tripBar();
+  forceOpen=false;
+  let h=tripBar()+'<div class="toolbar">'+openAllBtn()+'<span class="hint">לחיצה על כותרת ארוחה פותחת וסוגרת אותה. מה שתפתחו יישאר פתוח במכשיר הזה.</span></div>';
   DAYS.forEach(day=>{
     h+='<div class="daybar"><h2>'+esc(day.t)+'</h2><span class="rule"></span>'+(day.s?'<span class="stamp">'+esc(day.s)+"</span>":"")+"</div>";
     day.meals.forEach(mk=>{
@@ -616,7 +631,7 @@ function renderMeals(){
       const done=list.filter(i=>i.d).length;
       const md=mealDocs[mk]||{};
       const id="meal-"+mk;
-      h+='<section class="card'+(m.chag?" chag":"")+'" data-open="'+(folded[id]?0:1)+'">'+
+      h+='<section class="card'+(m.chag?" chag":"")+'" data-open="'+(isOpen(id)?1:0)+'">'+
         foldHead(id,
           "<span><span class=\"eyebrow\">"+esc(m.when)+(m.chag?" · ארוחת החג":"")+"</span>"+
           "<h3>"+esc(m.n)+"</h3><div class=\"sub\">"+esc(m.sub)+"</div></span>"+
@@ -637,6 +652,7 @@ function renderMeals(){
 
 function renderShop(){
   const qq=q.trim();
+  forceOpen=!!qq;
   let base=shopAll().filter(i=>i.c!=="task");
   if(shopFilter==="todo") base=base.filter(i=>!i.d);
   if(shopFilter==="done") base=base.filter(i=>i.d);
@@ -657,6 +673,7 @@ function renderShop(){
     '<button class="chip" data-act="filter" data-v="all" aria-pressed="'+(shopFilter==="all")+'">הכל</button>'+
     '<button class="chip" data-act="who" data-v="shop" aria-pressed="'+(who==="shop")+'">רשימת הקנייה המשותפת</button>'+
     '<button class="chip" data-act="who" data-v="mine" aria-pressed="'+(who==="mine")+'"'+(me?"":" disabled title=\"בחרו קודם את המשפחה שלכם למעלה\"")+'>רק מה שאני מביא</button>'+
+    openAllBtn()+
     '<button class="chip" data-act="allshop" style="margin-inline-start:auto">שייכו את כל מה שלא משויך לרשימת הקניות</button>'+
     "</div>";
 
@@ -672,7 +689,7 @@ function renderShop(){
     if(!list.length) return;
     const inCat=total.filter(i=>i.c===ck);
     const id="shop-"+ck;
-    h+='<section class="card" data-open="'+(folded[id]?0:1)+'">'+
+    h+='<section class="card" data-open="'+(isOpen(id)?1:0)+'">'+
       foldHead(id,"<span><h3>"+esc(cn)+'</h3></span><span class="meta">'+barHTML(inCat.filter(i=>i.d).length,inCat.length)+"</span>")+
       '<div class="c-body">'+
         '<div class="chefline"><span>שייכו את כל מה שלא משויך בקטגוריה ל־</span>'+
@@ -687,12 +704,14 @@ function renderShop(){
 }
 
 function renderGear(){
-  let h='<div class="notice">כאן יושב כל מה שאינו אוכל. לכל פריט יש מתג <b>לקנות / מהבית</b> — מה שמסומן «מהבית» יורד אוטומטית מרשימת הקניות.</div>';
+  forceOpen=false;
+  let h='<div class="toolbar">'+openAllBtn()+'</div>'+
+    '<div class="notice">כאן יושב כל מה שאינו אוכל. לכל פריט יש מתג <b>לקנות / מהבית</b> — מה שמסומן «מהבית» יורד אוטומטית מרשימת הקניות.</div>';
   GEARCATS.forEach(ck=>{
     const list=arr().filter(i=>i.c===ck);
     const id="gear-"+ck;
     const done=list.filter(i=>i.d).length;
-    h+='<section class="card" data-open="'+(folded[id]?0:1)+'">'+
+    h+='<section class="card" data-open="'+(isOpen(id)?1:0)+'">'+
       foldHead(id,"<span><h3>"+esc(CATBY[ck])+"</h3>"+(ck==="task"?'<div class="sub">דברים לברר מול בעל הוילה או לסגור בינינו</div>':"")+
         '</span><span class="meta">'+barHTML(done,list.length)+"</span>")+
       '<div class="c-body">'+
@@ -778,7 +797,8 @@ view.addEventListener("click",e=>{
     toast('"'+it.t+'" נמחק', "ביטול", ()=>{ items.set(id,Object.assign({id:id},rec)); render(); setItem(id,rec); });
   }
   else if(act==="src"){ const it=items.get(id); if(!it) return; it.s=it.s==="home"?"buy":"home"; render(); upItem(id,{s:it.s}); }
-  else if(act==="fold"){ const s=b.dataset.sec; folded[s]=!folded[s]; render(); }
+  else if(act==="fold"){ const k=b.dataset.sec; openSecs[k]=!openSecs[k]; saveOpen(); render(); }
+  else if(act==="openall"){ const want=!anyOpen(); secIds().forEach(k=>{ if(want) openSecs[k]=true; else delete openSecs[k]; }); saveOpen(); render(); }
   else if(act==="filter"){ shopFilter=b.dataset.v; render(); }
   else if(act==="who"){ const v=b.dataset.v; who=(who===v?"":v); render(); }
   else if(act==="allshop"){
