@@ -18,5 +18,7 @@
 
 מחובר לפרויקט Firebase `sukkot-tzafon-2026` (Realtime Database, us-central1).
 הקריאה והכתיבה פתוחות למי שיש לו את הקישור — זו רשימת קניות משפחתית, בלי מידע רגיש.
-כללי ההרשאות יושבים ב-`database.rules.json` שבפרויקט Firebase ומגבילים כתיבה
+כללי ההרשאות יושבים ב-`database.rules.json` שבריפו הזה ומגבילים כתיבה
 לארבעה שורשים בלבד: `items`, `meals`, `meta`, `presence`.
+
+לעדכון הכללים: `firebase deploy --only database`
