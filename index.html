@@ -23,33 +23,9 @@
   --chag:#8A2F3F; --chag-soft:#F8E9EB;
   --shadow:0 1px 1px rgba(27,32,23,.04), 0 10px 26px -16px rgba(27,32,23,.30);
   --radius:10px; --on-accent:#FFFFFF;
+  color-scheme:light;
   --f-yavne:#B6702F; --f-rehovot:#2F7A99; --f-rg:#75589C; --f-oryam:#237F62; --f-moscow:#A63E52;
 }
-@media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]){
-    --bg:#111309; --surface:#191C13; --surface-2:#1F2318; --surface-3:#262B1E;
-    --ink:#EAECE1; --ink-2:#A2A995; --ink-3:#78806B;
-    --line:#2B3025; --line-2:#3C4233;
-    --accent:#A9C433; --accent-ink:#C6DD5D; --accent-soft:#242B12;
-    --good:#5FAE87; --good-soft:#16271E;
-    --warn:#DE8F55;
-    --chag:#D8848F; --chag-soft:#2B181B;
-    --shadow:0 1px 1px rgba(0,0,0,.3), 0 10px 26px -16px rgba(0,0,0,.7); --on-accent:#141709;
-    --f-yavne:#D9995B; --f-rehovot:#63AFCB; --f-rg:#A88CCE; --f-oryam:#4FB08D; --f-moscow:#D4788A;
-  }
-}
-:root[data-theme="dark"]{
-  --bg:#111309; --surface:#191C13; --surface-2:#1F2318; --surface-3:#262B1E;
-  --ink:#EAECE1; --ink-2:#A2A995; --ink-3:#78806B;
-  --line:#2B3025; --line-2:#3C4233;
-  --accent:#A9C433; --accent-ink:#C6DD5D; --accent-soft:#242B12;
-  --good:#5FAE87; --good-soft:#16271E;
-  --warn:#DE8F55;
-  --chag:#D8848F; --chag-soft:#2B181B;
-  --shadow:0 1px 1px rgba(0,0,0,.3), 0 10px 26px -16px rgba(0,0,0,.7); --on-accent:#141709;
-  --f-yavne:#D9995B; --f-rehovot:#63AFCB; --f-rg:#A88CCE; --f-oryam:#4FB08D; --f-moscow:#D4788A;
-}
-
 *{box-sizing:border-box}
 body{
   background:var(--bg); color:var(--ink);
@@ -210,6 +186,32 @@ select.buyer.set{border-style:solid}
 .row:hover .kill, .kill:focus-visible{opacity:1}
 .kill:hover{color:var(--warn); background:var(--surface-3)}
 
+/* ---------- who are you ---------- */
+#gate{
+  position:fixed; inset:0; z-index:80; display:grid; place-items:center;
+  padding:20px; background:color-mix(in srgb, var(--ink) 42%, transparent);
+  backdrop-filter:blur(3px);
+}
+#gate .box{
+  background:var(--surface); border:1px solid var(--line); border-radius:14px;
+  box-shadow:0 24px 60px -24px rgba(27,32,23,.45);
+  padding:26px 24px; width:min(440px,100%); text-align:center;
+}
+#gate .kicker{
+  display:block; font-size:11px; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--accent); font-weight:700; margin-bottom:6px;
+}
+#gate h2{font-family:"Frank Ruhl Libre",Georgia,serif; font-size:24px; font-weight:900}
+#gate p{color:var(--ink-2); font-size:13.5px; margin:8px 0 18px}
+#gate .opts{display:flex; flex-direction:column; gap:8px}
+#gate .opts button{
+  display:flex; align-items:center; gap:11px; width:100%; text-align:right;
+  background:var(--surface-2); border:1px solid var(--line-2); border-radius:10px;
+  padding:12px 14px; font-size:15px; font-weight:600;
+}
+#gate .opts button:hover{border-color:var(--accent); background:var(--accent-soft)}
+#gate .opts button i{width:12px; height:12px; border-radius:50%; flex:none}
+
 /* ---------- inline edit ---------- */
 .name[data-act="edit"], .qty[data-act="edit"]{cursor:text; border-radius:4px}
 .name[data-act="edit"]:hover, .qty[data-act="edit"]:hover{
@@ -364,6 +366,14 @@ form.add button{
       </nav>
     </div>
   </header>
+  <div id="gate" hidden>
+    <div class="box" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
+      <span class="kicker">סופ״ש סוכות · וילה בצפון</span>
+      <h2 id="gateTitle">מאיזו משפחה אתם?</h2>
+      <p>כדי שנדע מי מביא מה ומי אחראי על איזו ארוחה. אפשר לשנות בכל רגע מהכותרת למעלה.</p>
+      <div class="opts" id="gateOpts"></div>
+    </div>
+  </div>
   <main><div class="wrap" id="view">
     <div class="card"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div>
   </div></main>
@@ -372,7 +382,7 @@ form.add button{
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 <script>
-window.BUILD = "2026-09-04e";
+window.BUILD = "2026-09-04f";
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyCIB2FRO9r6io9QVinFpnAsADdgihsb26E",
   authDomain: "sukkot-tzafon-2026.firebaseapp.com",
@@ -416,9 +426,10 @@ const GEARCATS=["gear","dispo","spice","task"];
 
 const MEALS=[
   {k:"thu-din", when:"חמישי · ארוחת ערב", n:"ערב מקסיקני",        sub:"טורטיות, גוואקמולי ונאצ׳וס — קל לערב ההגעה"},
-  {k:"bf",      when:"שישי ושבת · בוקר",  n:"בוקר ישראלי גדול",   sub:"הכמויות כאן הן לשני הבקרים יחד"},
+  {k:"fri-bf",  when:"שישי · בוקר",       n:"בוקר ישראלי",         sub:"ביצים, גבינות, סלט גדול ומאפים"},
   {k:"fri-lun", when:"שישי · צהריים",     n:"המבורגרים ונקניקיות", sub:"עם צ׳יפס — הכי קל עם הילדים"},
   {k:"fri-din", when:"שישי · ליל החג",    n:"ארוחת חג סוכות",     sub:"על האש, קידוש וקינוח", chag:true},
+  {k:"sat-bf",  when:"שבת · בוקר",        n:"שקשוקות",             sub:"שתיים אדומות ואחת ירוקה — תרד ושמנת"},
   {k:"sat-lun", when:"שבת · צהריים",      n:"פסטה ופיצות",         sub:"לפני היציאה"},
   {k:"snacks",  when:"כל הסופ״ש",         n:"נשנושים",             sub:"החלק שאסור לזלזל בו עם 9 ילדים"},
   {k:"drinks",  when:"כל הסופ״ש",         n:"שתייה, קפה ואלכוהול", sub:"לשני הלילות"}
@@ -426,8 +437,8 @@ const MEALS=[
 const MEALBY=Object.fromEntries(MEALS.map(m=>[m.k,m]));
 const DAYS=[
   {t:"יום חמישי",       s:"24.9 · הגעה לוילה",              meals:["thu-din"]},
-  {t:"יום שישי",        s:"25.9 · ערב חג ראשון של סוכות",   meals:["bf","fri-lun","fri-din"]},
-  {t:"שבת",             s:"26.9 · חג · יציאה",              meals:["sat-lun"]},
+  {t:"יום שישי",        s:"25.9 · ערב חג ראשון של סוכות",   meals:["fri-bf","fri-lun","fri-din"]},
+  {t:"שבת",             s:"26.9 · חג · יציאה",              meals:["sat-bf","sat-lun"]},
   {t:"לאורך כל הסופ״ש", s:"",                               meals:["snacks","drinks"]}
 ];
 
@@ -780,11 +791,24 @@ document.getElementById("tabs").addEventListener("click",e=>{
 const fp=document.getElementById("fampick");
 FAMS.forEach(f=>{ const o=document.createElement("option"); o.value=f.k; o.textContent=f.n; fp.appendChild(o); });
 fp.value=me;
-fp.addEventListener("change",()=>{
-  me=fp.value; try{localStorage.setItem("sk-fam",me);}catch(e){}
+function setMe(v){
+  me=v; fp.value=v;
+  try{ localStorage.setItem("sk-fam",me); }catch(e){}
   if(presSelf) presSelf.update({fam:me||""});
-  render();
+  paintGate(); render();
+}
+fp.addEventListener("change",()=>setMe(fp.value));
+
+const gate=document.getElementById("gate");
+document.getElementById("gateOpts").innerHTML=FAMS.map(f=>
+  '<button type="button" data-fam="'+f.k+'"><i style="background:var(--f-'+f.k+')"></i>'+esc(f.n)+"</button>"
+).join("");
+gate.addEventListener("click",e=>{
+  const b=e.target.closest("[data-fam]"); if(!b) return;
+  setMe(b.dataset.fam);
 });
+function paintGate(){ gate.hidden=!!me; }
+paintGate();
 
 view.addEventListener("click",e=>{
   const b=e.target.closest("[data-act]"); if(!b) return;
