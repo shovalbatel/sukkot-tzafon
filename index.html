@@ -307,8 +307,18 @@ form.add button{
 }
 
 /* ---------- families ---------- */
-.famgrid{display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:12px}
 .fam-card .c-head{border-inline-start:3px solid var(--fc)}
+.subhead{
+  display:flex; align-items:center; gap:8px;
+  padding:9px 15px 7px; font-size:10.5px; letter-spacing:.12em; text-transform:uppercase;
+  font-weight:700; color:var(--ink-3); background:var(--surface-2);
+  border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+}
+.subhead .n{
+  font-size:10px; font-weight:700; letter-spacing:0; color:var(--ink-2);
+  background:var(--surface-3); border-radius:99px; padding:1px 6px; font-variant-numeric:tabular-nums;
+}
+.subhead.everyone{color:var(--ink); background:var(--surface-3)}
 .fam-card.mine{box-shadow:var(--shadow)}
 .you{font-size:10px; font-weight:800; letter-spacing:.1em; color:var(--accent-ink); background:var(--accent-soft); border-radius:4px; padding:1px 6px}
 .assigned{padding:11px 15px; border-bottom:1px solid var(--line); font-size:12.5px; color:var(--ink-2); display:flex; gap:8px; align-items:baseline; flex-wrap:wrap}
@@ -412,7 +422,7 @@ form.add button{
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 <script>
-window.BUILD = "2026-09-04l";
+window.BUILD = "2026-09-10a";
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyCIB2FRO9r6io9QVinFpnAsADdgihsb26E",
   authDomain: "sukkot-tzafon-2026.firebaseapp.com",
@@ -487,6 +497,7 @@ function secIds(){
   if(tab==="meals") return MEALS.map(m=>"meal-"+m.k);
   if(tab==="shop")  return CATS.filter(c=>c[0]!=="task").map(c=>"shop-"+c[0]);
   if(tab==="gear")  return GEARCATS.map(c=>"gear-"+c);
+  if(tab==="fams")  return FAMS.map(f=>"fam-"+f.k);
   return [];
 }
 const anyOpen=()=>secIds().some(id=>openSecs[id]);
@@ -593,13 +604,16 @@ function famTag(k){
   return '<span class="fam-tag" style="color:var(--f-'+k+');border-color:color-mix(in srgb,var(--f-'+k+') 45%,transparent);background:color-mix(in srgb,var(--f-'+k+') 10%,transparent)">'+esc(f.s)+"</span>";
 }
 function buyerSel(it){
-  const shop=it.b==="shop";
+  const shop=it.b==="shop", every=it.b==="all";
   const st=!it.b?"":(shop
     ? 'style="color:var(--accent-ink);border-color:color-mix(in srgb,var(--accent) 55%,transparent);background:var(--accent-soft)"'
-    : 'style="color:var(--f-'+it.b+');border-color:color-mix(in srgb,var(--f-'+it.b+') 55%,transparent)"');
+    : (every
+      ? 'style="color:var(--ink);border-color:var(--ink-3);background:var(--surface-3)"'
+      : 'style="color:var(--f-'+it.b+');border-color:color-mix(in srgb,var(--f-'+it.b+') 55%,transparent)"'));
   return '<select class="buyer'+(it.b?" set":"")+'" data-act="buyer" data-id="'+it.id+'" aria-label="מי מביא" '+st+">"+
     '<option value="">מי מביא?</option>'+
     '<option value="shop"'+(shop?" selected":"")+">רשימת קניות</option>"+
+    '<option value="all"'+(every?" selected":"")+">כל משפחה לעצמה</option>"+
     FAMS.map(f=>'<option value="'+f.k+'"'+(it.b===f.k?" selected":"")+">"+esc(f.s)+"</option>").join("")+"</select>";
 }
 function srcBtn(it){
@@ -725,12 +739,13 @@ function renderShop(){
   let base=shopAll().filter(i=>i.c!=="task");
   if(shopFilter==="todo") base=base.filter(i=>!i.d);
   if(shopFilter==="done") base=base.filter(i=>i.d);
-  if(who==="mine"&&me) base=base.filter(i=>i.b===me);
+  if(who==="mine"&&me) base=base.filter(i=>i.b===me||i.b==="all");
   if(who==="shop") base=base.filter(i=>i.b==="shop");
   if(qq) base=base.filter(i=>i.t.indexOf(qq)>-1);
 
   const total=shopAll().filter(i=>i.c!=="task");
   const unassigned=total.filter(i=>!i.b&&!i.d).length;
+  const everyoneCount=total.filter(i=>i.b==="all").length;
   const myLeft=me?total.filter(i=>i.b===me&&!i.d).length:0;
   const shopLeft=total.filter(i=>i.b==="shop"&&!i.d).length;
   const shopTot=total.filter(i=>i.b==="shop").length;
@@ -750,7 +765,7 @@ function renderShop(){
   h+="<b>הקנייה המשותפת בבוקר חמישי:</b> "+shopLeft+" פריטים נותרו מתוך "+shopTot+". ";
   if(me) h+="<b>"+esc(FAMBY[me].n)+"</b> מביאה בעצמה עוד <b>"+myLeft+"</b> פריטים. ";
   else h+="בחרו את המשפחה שלכם למעלה כדי לראות מה אתם מביאים. ";
-  h+="עדיין ללא שיוך: <b>"+unassigned+"</b>. סמנו ✓ ברגע שנקנה — כולם רואים מיד, ולחיצה על שם פריט או על הכמות פותחת אותם לעריכה.</div>";
+  h+="עדיין ללא שיוך: <b>"+unassigned+"</b>"+(everyoneCount?", ועוד <b>"+everyoneCount+"</b> שכל משפחה מביאה לעצמה":"")+". סמנו ✓ ברגע שנקנה — כולם רואים מיד, ולחיצה על שם פריט או על הכמות פותחת אותם לעריכה.</div>";
 
   CATS.forEach(([ck,cn])=>{
     if(ck==="task") return;
@@ -791,30 +806,51 @@ function renderGear(){
   return h;
 }
 
+function groupedRows(list,opts){
+  let h="";
+  CATS.forEach(function(c){
+    const rows=list.filter(i=>i.c===c[0]);
+    if(!rows.length) return;
+    h+='<div class="subhead">'+esc(c[1])+" <span class=\"n\">"+rows.length+"</span></div>"+
+       '<ul class="rows">'+rows.map(i=>rowHTML(i,opts)).join("")+"</ul>";
+  });
+  return h;
+}
+
 function renderFams(){
+  forceOpen=false;
   const sl=shopAll().filter(i=>i.b==="shop");
+  const everyone=arr().filter(i=>i.c!=="personal"&&i.b==="all");
   let h='<section class="card" style="border-color:color-mix(in srgb,var(--accent) 45%,var(--line));margin-bottom:14px">'+
     '<div class="c-head" style="background:var(--accent-soft)"><span><span class="eyebrow" style="color:var(--accent-ink)">חמישי בבוקר · כולנו יחד</span>'+
     "<h3>הקנייה המשותפת</h3></span>"+'<span class="meta">'+barHTML(sl.filter(i=>i.d).length,sl.length)+"</span></div>"+
     '<div class="assigned"><b class="num">'+sl.filter(i=>!i.d).length+"</b><span>פריטים ברשימת הקנייה המשותפת נותרו לקנות</span>"+
     '<button class="chip" data-act="goshop" style="margin-inline-start:auto">פתחו את הרשימה</button></div></section>'+
-    '<div class="notice">לכל משפחה יש רשימה משלה — מה להביא מהבית, מה לא לשכוח, בקשות מיוחדות. הרשימות גלויות לכולם כדי שלא נביא חמישה רמקולים.</div><div class="famgrid">';
-  FAMS.forEach(f=>{
+    '<div class="notice">לחצו על שם משפחה כדי לראות בדיוק מה היא מביאה. פריט שכל משפחה צריכה להביא לעצמה — סמנו אותו «כל משפחה לעצמה» בבורר «מי מביא», והוא יופיע אצל כולן.</div>';
+  FAMS.forEach(function(f){
     const mine=f.k===me;
     const own=arr().filter(i=>i.c==="personal"&&i.f===f.k);
-    const buy=shopAll().filter(i=>i.b===f.k);
-    const buyLeft=buy.filter(i=>!i.d).length;
+    const buy=arr().filter(i=>i.c!=="personal"&&i.b===f.k);
+    const done=buy.filter(i=>i.d).length;
     const chefOf=MEALS.filter(m=>(mealDocs[m.k]||{}).chef===f.k);
-    h+='<section class="card fam-card'+(mine?" mine":"")+'" style="--fc:var(--f-'+f.k+')">'+
-      '<div class="c-head"><span><h3>'+esc(f.n)+"</h3>"+
-        (chefOf.length?'<div class="sub">אחראים על: '+chefOf.map(m=>esc(m.n)).join(" · ")+"</div>":'<div class="sub">לא שובצו עדיין לארוחה</div>')+
-      "</span>"+(mine?'<span class="meta"><span class="you">אני</span></span>':"")+"</div>"+
-      '<div class="assigned"><b class="num">'+buyLeft+"</b><span>פריטים נותרו להביא מתוך "+buy.length+" ששויכו למשפחה</span></div>"+
-      (own.length?'<ul class="rows">'+own.map(i=>rowHTML(i,{noBuyer:true})).join("")+"</ul>":'<div class="empty">אין עדיין רשימה אישית.</div>')+
-      addForm("fam",f.k,"מה להביא מהבית?")+
-    "</section>";
+    const id="fam-"+f.k;
+    h+='<section class="card fam-card'+(mine?" mine":"")+'" style="--fc:var(--f-'+f.k+')" data-open="'+(isOpen(id)?1:0)+'">'+
+      foldHead(id,
+        '<span><span class="eyebrow">'+(chefOf.length?"אחראים על "+chefOf.map(m=>esc(mealName(m.k))).join(" · "):"לא שובצו לארוחה")+"</span>"+
+        "<h3>"+esc(f.n)+"</h3>"+
+        '<div class="sub">'+buy.length+" פריטים לשיוך המשפחה"+(everyone.length?" · ועוד "+everyone.length+" שכל משפחה מביאה לעצמה":"")+"</div></span>"+
+        '<span class="meta">'+barHTML(done,buy.length)+"</span>",
+        mine?'<span class="you">אני</span>':"")+
+      '<div class="c-body">'+
+        (buy.length?groupedRows(buy,{showMeal:true}):'<div class="empty">לא שויכו למשפחה הזו פריטים.</div>')+
+        (everyone.length?'<div class="subhead everyone">כל משפחה מביאה לעצמה <span class="n">'+everyone.length+"</span></div>"+
+          '<ul class="rows">'+everyone.map(i=>rowHTML(i,{showCat:true})).join("")+"</ul>":"")+
+        '<div class="subhead">הרשימה האישית של המשפחה</div>'+
+        (own.length?'<ul class="rows">'+own.map(i=>rowHTML(i,{noBuyer:true})).join("")+"</ul>":'<div class="empty">אין עדיין רשימה אישית.</div>')+
+        addForm("fam",f.k,"מה להביא מהבית?")+
+      "</div></section>";
   });
-  return h+"</div>";
+  return h;
 }
 
 /* ---------- render ---------- */
