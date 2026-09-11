@@ -1096,7 +1096,7 @@ view.addEventListener("click",e=>{
   else if(act==="filter"){ shopFilter=b.dataset.v; render(); }
   else if(act==="who"){ const v=b.dataset.v; who=(who===v?"":v); render(); }
   else if(act==="allshop"){
-    const targets=shopAll().filter(i=>i.c!=="task"&&!i.b);
+    const targets=listAll().filter(i=>!i.b);
     if(!targets.length){ toast("כל הפריטים כבר משויכים."); return; }
     const ids=targets.map(i=>i.id);
     targets.forEach(i=>{ i.b="shop"; upItem(i.id,{b:"shop"}); });
