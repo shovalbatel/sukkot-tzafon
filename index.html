@@ -422,7 +422,7 @@ form.add button{
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 <script>
-window.BUILD = "2026-09-11a";
+window.BUILD = "2026-09-11b";
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyCIB2FRO9r6io9QVinFpnAsADdgihsb26E",
   authDomain: "sukkot-tzafon-2026.firebaseapp.com",
@@ -515,6 +515,29 @@ const mealSub =k=>{ const d=mealDocs[k]||{}; return d.sub!==undefined?d.sub:(MEA
 const catName=k=>CATBY[k]||k;
 const newId=()=>"x"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const byName=(a,b)=>String(a.t||"").localeCompare(String(b.t||""),"he");
+
+/* מנחש את המדף לפי שם הפריט. הסדר קובע — הכלל הראשון שמתאים מנצח. */
+const CATHINTS=[
+  ["dry",["רוטב","רסק","מרוסק","ממרח","שימור","קמח","פסטה","ספגטי","פנה","אורז","קטשופ","מיונז","חרדל","טחינה","חומוס","סלסה","ריבה","דבש","פירורי","קורנפלקס","קוסקוס","עדשים","שעועית","חומץ","סויה","טונה"]],
+  ["dairy",["חלב","גבינ","קוטג","יוגורט","שמנת","חמאה","ביצים","ביצה","בולגרית","פטה","מוצרל","פרמזן","ריקוטה","מסקרפונה"]],
+  ["meat",["בשר","עוף","פרגי","כנפי","סטייק","אנטריקוט","קבב","נקניק","המבורגר","שניצל","דגים","דג ","סלמון","שרימפ","פילה","מרגז","חזה","טחון","כבד","הודו"]],
+  ["frozen",["קפוא","גלידה","ארטיק","שלגון","בורקס","צ׳יפס","פוטטוס","מלאווח"]],
+  ["bread",["לחם","לחמני","פית","חלה","חלות","בייגל","טורטי","באגט","פוקאצ","קרואסון","מאפ"]],
+  ["drinks",["מים","קולה","ספרייט","סודה","מיץ","מיצים","בירה","בירות","יין","אלכוהול","קפה","תה ","נס ","קפסול","שתיי"]],
+  ["spice",["תבלין","פפריקה","כמון","כורכום","צ׳ילי","סומק","זעתר","קינמון","וניל","אבקת","שמן ","שומשום","מלח"]],
+  ["snacks",["חטיף","עוגי","ביסלי","במבה","שוקולד","ממתק","קרקר","בייגלה","נאצ","פיצוח","קינוח","עוגה","וופל"]],
+  ["dispo",["חד״פ","חד\"פ","מפיות","נייר","שקיות","צלחות","כוסות","סכו","סבון","ספוג","טבליות","מגבונים","ניילון","סקוטצ"]],
+  ["gear",["מנגל","פחם","קרח","רמקול","מטען","כבל","מגבת","משחק","צידנית","שיפוד","מצית","גפרור"]],
+  ["veg",["עגבני","מלפפון","פלפל","חסה","בצל","שום","לימון","אבוקדו","תפוח","בטטה","גזר","כרוב","חציל","קישוא","פטרוזיל","כוסבר","שמיר","בזיליקום","נענע","אבטיח","מלון","ענב","בננ","נקטרינ","אפרסק","תות","פרי","פירות","סלרי","ברוקולי","כרובית","דלעת","צנון","פטרי","ירק","תירס","זית"]]
+];
+function guessCat(t){
+  const s=" "+String(t||"")+" ";
+  for(let i=0;i<CATHINTS.length;i++){
+    const words=CATHINTS[i][1];
+    for(let j=0;j<words.length;j++){ if(s.indexOf(words[j])>-1) return CATHINTS[i][0]; }
+  }
+  return "dry";
+}
 
 /* ---------- writes ---------- */
 let toastT=null;
@@ -727,7 +750,7 @@ function renderMeals(){
             '<input data-fid="mnote-'+mk+'" data-mnote="'+mk+'" placeholder="הערה לארוחה — מי מביא מה, מתי מתחילים…" value="'+esc(md.note||"")+'" style="flex:1 1 220px;border:0;border-bottom:1px dashed var(--line-2);background:transparent;padding:3px 2px;font-size:12.5px">'+
           "</div>"+
           (list.length?'<ul class="rows">'+list.map(i=>rowHTML(i,{})).join("")+"</ul>":'<div class="empty">אין עדיין פריטים לארוחה הזו.</div>')+
-          addForm("meal",mk,"מה עוד צריך לארוחה הזו?")+
+          addForm("meal",mk,"מה עוד צריך לארוחה הזו? המדף ייבחר אוטומטית")+
         "</div></section>";
     });
   });
@@ -1028,7 +1051,7 @@ view.addEventListener("submit",e=>{
   const t=f.querySelector("input.t").value.trim(); if(!t) return;
   const qv=f.querySelector("input.q").value.trim();
   const kind=f.dataset.add, key=f.dataset.key;
-  if(kind==="meal") addItem({t:t,q:qv,m:key,c:"dry",b:"shop"});
+  if(kind==="meal") addItem({t:t,q:qv,m:key,c:guessCat(t),b:"shop"});
   else if(kind==="cat") addItem({t:t,q:qv,c:key,b:(key==="task"||key==="gear")?"":"shop",s:key==="task"?"home":"buy"});
   else if(kind==="fam") addItem({t:t,q:qv,c:"personal",f:key,s:"home"});
   f.reset();
