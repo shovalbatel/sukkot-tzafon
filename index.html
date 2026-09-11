@@ -418,7 +418,6 @@ form.add button{
       <nav class="tabs" id="tabs" role="tablist">
         <button role="tab" data-tab="meals" aria-selected="true">ארוחות</button>
         <button role="tab" data-tab="shop" aria-selected="false">רשימת קניות <span class="cnt" id="cShop">–</span></button>
-        <button role="tab" data-tab="gear" aria-selected="false">ציוד ולוגיסטיקה <span class="cnt" id="cGear">–</span></button>
         <button role="tab" data-tab="fams" aria-selected="false">רשימות המשפחות</button>
       </nav>
     </div>
@@ -439,7 +438,7 @@ form.add button{
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 <script>
-window.BUILD = "2026-09-11f";
+window.BUILD = "2026-09-11g";
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyCIB2FRO9r6io9QVinFpnAsADdgihsb26E",
   authDomain: "sukkot-tzafon-2026.firebaseapp.com",
@@ -475,11 +474,10 @@ const CATS=[
   ["snacks","חטיפים ומתוקים"],
   ["drinks","משקאות"],
   ["dispo","חד״פ, ניקיון ומטבח"],
-  ["gear","ציוד, מנגל ובריכה"],
-  ["task","לברר ולסדר"]
+  ["gear","ציוד, מנגל ובריכה"]
 ];
 const CATBY=Object.fromEntries(CATS);
-const GEARCATS=["gear","dispo","spice","task"];
+
 
 const MEALS=[
   {k:"thu-din", when:"חמישי · ארוחת ערב", n:"דגים בגריל",          sub:"דגים שלמים ממולאים בצ׳ימיצורי, אורז ותפוחי אדמה"},
@@ -513,8 +511,7 @@ let forceOpen=false;
 const isOpen=id=>forceOpen||!!openSecs[id];
 function secIds(){
   if(tab==="meals") return MEALS.map(m=>"meal-"+m.k);
-  if(tab==="shop")  return CATS.filter(c=>c[0]!=="task").map(c=>"shop-"+c[0]);
-  if(tab==="gear")  return GEARCATS.map(c=>"gear-"+c);
+  if(tab==="shop")  return CATS.map(c=>"shop-"+c[0]);
   if(tab==="fams")  return FAMS.map(f=>"fam-"+f.k);
   return [];
 }
@@ -528,6 +525,7 @@ const view=document.getElementById("view");
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const arr=()=>[...items.values()].sort((a,b)=>(a.o||0)-(b.o||0));
 const shopAll=()=>arr().filter(i=>i.c!=="personal"&&i.s!=="home");
+const listAll=()=>arr().filter(i=>i.c!=="personal");
 const mealName=k=>{ const d=mealDocs[k]||{}; return (d.n!==undefined&&d.n!=="")?d.n:(MEALBY[k]?MEALBY[k].n:""); };
 const mealSub =k=>{ const d=mealDocs[k]||{}; return d.sub!==undefined?d.sub:(MEALBY[k]?MEALBY[k].sub:""); };
 const catName=k=>CATBY[k]||k;
@@ -705,9 +703,8 @@ function paintHeader(){
   arc.setAttribute("stroke", pct===100?"var(--good)":"var(--accent)");
   document.getElementById("ringPct").textContent=tot?pct+"%":"—";
   document.getElementById("gaugeMain").textContent=tot?done+" / "+tot:"— / —";
-  document.getElementById("cShop").textContent=tot?String(tot-done):"–";
-  const g=arr().filter(i=>GEARCATS.includes(i.c)&&!i.d).length;
-  document.getElementById("cGear").textContent=items.size?String(g):"–";
+  const rest=listAll().filter(i=>!i.d).length;
+  document.getElementById("cShop").textContent=items.size?String(rest):"–";
   document.getElementById("hdrDates").textContent=trip.dates||"חמישי 24.9 — שבת 26.9";
 }
 
@@ -876,14 +873,14 @@ function groupsOf(list){
 function renderShop(){
   const qq=q.trim();
   forceOpen=!!qq;
-  let base=shopAll().filter(i=>i.c!=="task");
+  let base=listAll();
   if(shopFilter==="todo") base=base.filter(i=>!i.d||justDone.has(i.id));
   if(shopFilter==="done") base=base.filter(i=>i.d);
   if(who==="mine"&&me) base=base.filter(i=>i.b===me||i.b==="all");
   if(who==="shop") base=base.filter(i=>i.b==="shop");
   if(qq) base=base.filter(i=>i.t.indexOf(qq)>-1);
 
-  const total=shopAll().filter(i=>i.c!=="task");
+  const total=listAll();
   const unassigned=total.filter(i=>!i.b&&!i.d).length;
   const everyoneCount=total.filter(i=>i.b==="all").length;
   const myLeft=me?total.filter(i=>i.b===me&&!i.d).length:0;
@@ -908,10 +905,9 @@ function renderShop(){
   h+="<b>הקנייה המשותפת בבוקר חמישי:</b> "+shopLeft+" פריטים נותרו מתוך "+shopTot+". ";
   if(me) h+="<b>"+esc(FAMBY[me].n)+"</b> מביאה בעצמה עוד <b>"+myLeft+"</b> פריטים. ";
   else h+="בחרו את המשפחה שלכם למעלה כדי לראות מה אתם מביאים. ";
-  h+="עדיין ללא שיוך: <b>"+unassigned+"</b>"+(everyoneCount?", ועוד <b>"+everyoneCount+"</b> שכל משפחה מביאה לעצמה":"")+". סמנו ✓ ברגע שנקנה — כולם רואים מיד, ולחיצה על שם פריט או על הכמות פותחת אותם לעריכה.</div>";
+  h+="עדיין ללא שיוך: <b>"+unassigned+"</b>"+(everyoneCount?", ועוד <b>"+everyoneCount+"</b> שכל משפחה מביאה לעצמה":"")+". לכל פריט יש מתג <b>לקנות / מהבית</b> — מה שמסומן «מהבית» לא נספר בהתקדמות הקנייה.</div>";
 
   CATS.forEach(([ck,cn])=>{
-    if(ck==="task") return;
     const list=base.filter(i=>i.c===ck).sort((a,b)=>(a.o||0)-(b.o||0));
     if(!list.length) return;
     const inCat=total.filter(i=>i.c===ck);
@@ -923,30 +919,11 @@ function renderShop(){
           '<select data-act="bulk" data-key="'+ck+'" aria-label="שיוך כל הקטגוריה"><option value="">בחרו…</option><option value="shop">רשימת קניות משותפת</option>'+
           FAMS.map(f=>'<option value="'+f.k+'">'+esc(f.n)+"</option>").join("")+"</select></div>"+
         (shopMode==="sum"?'<ul class="rows">'+groupsOf(list).map(groupRowHTML).join("")+"</ul>"
-                         :'<ul class="rows">'+list.map(i=>rowHTML(i,{showMeal:true,move:true})).join("")+"</ul>")+
+                         :'<ul class="rows">'+list.map(i=>rowHTML(i,{showMeal:true,move:true,srcToggle:true})).join("")+"</ul>")+
         (shopMode==="sum"?"":addForm("cat",ck,"פריט נוסף לקטגוריה…"))+
       "</div></section>";
   });
   if(!base.length) h+='<div class="empty card">אין פריטים שמתאימים לסינון הנוכחי.</div>';
-  return h;
-}
-
-function renderGear(){
-  forceOpen=false;
-  let h='<div class="toolbar">'+openAllBtn()+'</div>'+
-    '<div class="notice">כאן יושב כל מה שאינו אוכל. לכל פריט יש מתג <b>לקנות / מהבית</b> — מה שמסומן «מהבית» יורד אוטומטית מרשימת הקניות.</div>';
-  GEARCATS.forEach(ck=>{
-    const list=arr().filter(i=>i.c===ck);
-    const id="gear-"+ck;
-    const done=list.filter(i=>i.d).length;
-    h+='<section class="card" data-open="'+(isOpen(id)?1:0)+'">'+
-      foldHead(id,"<span><h3>"+esc(CATBY[ck])+"</h3>"+(ck==="task"?'<div class="sub">דברים לברר מול בעל הוילה או לסגור בינינו</div>':"")+
-        '</span><span class="meta">'+barHTML(done,list.length)+"</span>")+
-      '<div class="c-body">'+
-        (list.length?'<ul class="rows">'+list.map(i=>rowHTML(i,{srcToggle:ck!=="task",noBuyer:ck==="task"})).join("")+"</ul>":'<div class="empty">ריק בינתיים.</div>')+
-        addForm("cat",ck,ck==="task"?"מה עוד צריך לברר?":"פריט ציוד נוסף…")+
-      "</div></section>";
-  });
   return h;
 }
 
@@ -1006,7 +983,7 @@ function render(){
   view.querySelectorAll("[data-fid]").forEach(el=>{vals[el.getAttribute("data-fid")]=el.value;});
   let html;
   if(dbState==="loading") html=skeleton();
-  else html=(dbState==="local"?offNotice():"")+(tab==="meals"?renderMeals():tab==="shop"?renderShop():tab==="gear"?renderGear():renderFams());
+  else html=(dbState==="local"?offNotice():"")+(tab==="meals"?renderMeals():tab==="shop"?renderShop():renderFams());
   view.innerHTML=html;
   view.querySelectorAll("[data-fid]").forEach(el=>{
     const v=vals[el.getAttribute("data-fid")];
@@ -1227,7 +1204,7 @@ view.addEventListener("submit",e=>{
   const qv=f.querySelector("input.q").value.trim();
   const kind=f.dataset.add, key=f.dataset.key;
   if(kind==="meal") addItem({t:t,q:qv,m:key,c:guessCat(t),b:"shop"});
-  else if(kind==="cat") addItem({t:t,q:qv,c:key,b:(key==="task"||key==="gear")?"":"shop",s:key==="task"?"home":"buy"});
+  else if(kind==="cat") addItem({t:t,q:qv,c:key,b:key==="gear"?"":"shop",s:"buy"});
   else if(kind==="fam") addItem({t:t,q:qv,c:"personal",f:key,s:"home"});
   f.reset();
   const inp=f.querySelector("input.t"); if(inp) inp.focus();
