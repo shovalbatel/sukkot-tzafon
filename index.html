@@ -437,7 +437,7 @@ form.add button{
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 <script>
-window.BUILD = "2026-09-11d";
+window.BUILD = "2026-09-11e";
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyCIB2FRO9r6io9QVinFpnAsADdgihsb26E",
   authDomain: "sukkot-tzafon-2026.firebaseapp.com",
@@ -565,10 +565,17 @@ function parseQty(q){
   if(!isFinite(n)) return null;
   return {n:n, unit:(m[3]||"").trim()};
 }
+function normQty(p){
+  const c=clean(p.unit);
+  if(c==="גרם"||c==="גר") return {n:p.n/1000, unit:'ק״ג'};
+  if(c==="מל") return {n:p.n/1000, unit:"ליטר"};
+  return p;
+}
 function sumQty(list){
   const units={}, order=[], loose=[];
   list.forEach(function(i){
-    const p=parseQty(i.q);
+    const p0=parseQty(i.q);
+    const p=p0?normQty(p0):null;
     if(!p){ if(i.q) loose.push(i.q); return; }
     const k=clean(p.unit);
     if(!units[k]){ units[k]={n:0,disp:p.unit}; order.push(k); }
