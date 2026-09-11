@@ -422,7 +422,7 @@ form.add button{
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 <script>
-window.BUILD = "2026-09-10a";
+window.BUILD = "2026-09-11a";
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyCIB2FRO9r6io9QVinFpnAsADdgihsb26E",
   authDomain: "sukkot-tzafon-2026.firebaseapp.com",
@@ -449,7 +449,7 @@ const FAMBY=Object.fromEntries(FAMS.map(f=>[f.k,f]));
 
 const CATS=[
   ["veg","ירקות ופירות"],
-  ["meat","בשר ועוף"],
+  ["meat","בשר, עוף ודגים"],
   ["dairy","מקרר — חלב, גבינות וביצים"],
   ["bread","לחם ומאפים"],
   ["dry","מדף — שימורים, ממרחים ורטבים"],
@@ -514,6 +514,7 @@ const mealName=k=>{ const d=mealDocs[k]||{}; return (d.n!==undefined&&d.n!=="")?
 const mealSub =k=>{ const d=mealDocs[k]||{}; return d.sub!==undefined?d.sub:(MEALBY[k]?MEALBY[k].sub:""); };
 const catName=k=>CATBY[k]||k;
 const newId=()=>"x"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const byName=(a,b)=>String(a.t||"").localeCompare(String(b.t||""),"he");
 
 /* ---------- writes ---------- */
 let toastT=null;
@@ -769,7 +770,7 @@ function renderShop(){
 
   CATS.forEach(([ck,cn])=>{
     if(ck==="task") return;
-    const list=base.filter(i=>i.c===ck);
+    const list=base.filter(i=>i.c===ck).sort(byName);
     if(!list.length) return;
     const inCat=total.filter(i=>i.c===ck);
     const id="shop-"+ck;
@@ -809,7 +810,7 @@ function renderGear(){
 function groupedRows(list,opts){
   let h="";
   CATS.forEach(function(c){
-    const rows=list.filter(i=>i.c===c[0]);
+    const rows=list.filter(i=>i.c===c[0]).sort(byName);
     if(!rows.length) return;
     h+='<div class="subhead">'+esc(c[1])+" <span class=\"n\">"+rows.length+"</span></div>"+
        '<ul class="rows">'+rows.map(i=>rowHTML(i,opts)).join("")+"</ul>";
