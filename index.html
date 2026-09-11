@@ -200,11 +200,17 @@ select.buyer{
   border-radius:999px; padding:2px 8px; font-size:11.5px; font-weight:600; max-width:132px;
 }
 select.buyer.set{border-style:solid}
+.rowact{display:flex; align-items:center; gap:1px; flex:none}
 .kill{
   border:0; background:none; color:var(--ink-3); font-size:15px; line-height:1;
   padding:3px 5px; border-radius:5px; opacity:.4; flex:none;
 }
-.row:hover .kill, .kill:focus-visible{opacity:1}
+.mv{
+  border:0; background:none; color:var(--ink-3); font-size:9px; line-height:1;
+  padding:4px 4px; border-radius:4px; opacity:.45; flex:none;
+}
+.mv:hover{opacity:1; color:var(--accent-ink); background:var(--surface-3)}
+.row:hover .kill, .kill:focus-visible, .row:hover .mv, .mv:focus-visible{opacity:1}
 .kill:hover{color:var(--warn); background:var(--surface-3)}
 
 /* ---------- who are you ---------- */
@@ -358,7 +364,9 @@ form.add button{
   }
   .tick{grid-area:tick}
   .name{grid-area:name; min-width:0}
-  .kill{grid-area:kill; opacity:1}
+  .rowact{grid-area:kill}
+  .kill, .mv{opacity:1}
+  .mv{font-size:11px; padding:6px 5px}
   .qty{grid-area:qty; min-width:0; text-align:center}
   .tags{grid-area:tags; justify-content:flex-start; flex-wrap:wrap}
   form.add{flex-wrap:wrap}
@@ -422,7 +430,7 @@ form.add button{
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 <script>
-window.BUILD = "2026-09-11b";
+window.BUILD = "2026-09-11c";
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyCIB2FRO9r6io9QVinFpnAsADdgihsb26E",
   authDomain: "sukkot-tzafon-2026.firebaseapp.com",
@@ -487,6 +495,7 @@ let items=new Map(), mealDocs={}, trip={};
 let me=""; try{me=localStorage.getItem("sk-fam")||"";}catch(e){}
 let tab="meals", shopFilter="todo", who="", q="";
 let editing=null, editT="", editQ="", editC="", editM="";
+const justDone=new Set();
 let editingMeal=null, editMN="", editMS="";
 let openSecs={};
 try{ openSecs=JSON.parse(localStorage.getItem("sk-open")||"{}")||{}; }catch(e){ openSecs={}; }
@@ -585,7 +594,10 @@ const setTrip=(d)   => fdb ? wr(()=>fdb.ref("meta/trip").update(d)) : localMut(x
 
 function addItem(o){
   const id=newId();
-  const max=arr().reduce((m,i)=>Math.max(m,i.o||0),0);
+  const ci=CATS.findIndex(c=>c[0]===(o&&o.c));
+  const inCat=arr().filter(i=>i.c===(o&&o.c));
+  const max=inCat.length ? inCat.reduce((m,i)=>Math.max(m,i.o||0),0)
+                         : (ci>=0?ci*1000:arr().reduce((m,i)=>Math.max(m,i.o||0),0));
   const rec=Object.assign({t:"",q:"",c:"dry",m:"",b:"",d:false,s:"buy",f:"",o:max+1},o);
   items.set(id,Object.assign({id},rec));
   render();
@@ -678,7 +690,11 @@ function rowHTML(it,o){
       (o.showCat?'<span class="tag">'+esc(catName(it.c))+"</span>":"")+
       (o.noBuyer?"":buyerSel(it))+
     "</span>"+
-    '<button class="kill" data-act="del" data-id="'+it.id+'" aria-label="מחיקת '+esc(it.t)+'">×</button>'+
+    '<span class="rowact">'+
+      (o.move?'<button class="mv" data-act="up" data-id="'+it.id+'" aria-label="העברה למעלה" title="למעלה">▲</button>'+
+              '<button class="mv" data-act="down" data-id="'+it.id+'" aria-label="העברה למטה" title="למטה">▼</button>':"")+
+      '<button class="kill" data-act="del" data-id="'+it.id+'" aria-label="מחיקת '+esc(it.t)+'">×</button>'+
+    "</span>"+
   "</li>";
 }
 function barHTML(done,tot){
@@ -761,7 +777,7 @@ function renderShop(){
   const qq=q.trim();
   forceOpen=!!qq;
   let base=shopAll().filter(i=>i.c!=="task");
-  if(shopFilter==="todo") base=base.filter(i=>!i.d);
+  if(shopFilter==="todo") base=base.filter(i=>!i.d||justDone.has(i.id));
   if(shopFilter==="done") base=base.filter(i=>i.d);
   if(who==="mine"&&me) base=base.filter(i=>i.b===me||i.b==="all");
   if(who==="shop") base=base.filter(i=>i.b==="shop");
@@ -782,6 +798,7 @@ function renderShop(){
     '<button class="chip" data-act="who" data-v="shop" aria-pressed="'+(who==="shop")+'">רשימת הקנייה המשותפת</button>'+
     '<button class="chip" data-act="who" data-v="mine" aria-pressed="'+(who==="mine")+'"'+(me?"":" disabled title=\"בחרו קודם את המשפחה שלכם למעלה\"")+'>רק מה שאני מביא</button>'+
     openAllBtn()+
+    '<button class="chip" data-act="sortaz">סדרו הכל לפי א׳-ב׳</button>'+
     '<button class="chip" data-act="allshop" style="margin-inline-start:auto">שייכו את כל מה שלא משויך לרשימת הקניות</button>'+
     "</div>";
 
@@ -793,7 +810,7 @@ function renderShop(){
 
   CATS.forEach(([ck,cn])=>{
     if(ck==="task") return;
-    const list=base.filter(i=>i.c===ck).sort(byName);
+    const list=base.filter(i=>i.c===ck).sort((a,b)=>(a.o||0)-(b.o||0));
     if(!list.length) return;
     const inCat=total.filter(i=>i.c===ck);
     const id="shop-"+ck;
@@ -803,7 +820,7 @@ function renderShop(){
         '<div class="chefline"><span>שייכו את כל מה שלא משויך בקטגוריה ל־</span>'+
           '<select data-act="bulk" data-key="'+ck+'" aria-label="שיוך כל הקטגוריה"><option value="">בחרו…</option><option value="shop">רשימת קניות משותפת</option>'+
           FAMS.map(f=>'<option value="'+f.k+'">'+esc(f.n)+"</option>").join("")+"</select></div>"+
-        '<ul class="rows">'+list.map(i=>rowHTML(i,{showMeal:true})).join("")+"</ul>"+
+        '<ul class="rows">'+list.map(i=>rowHTML(i,{showMeal:true,move:true})).join("")+"</ul>"+
         addForm("cat",ck,"פריט נוסף לקטגוריה…")+
       "</div></section>";
   });
@@ -833,7 +850,7 @@ function renderGear(){
 function groupedRows(list,opts){
   let h="";
   CATS.forEach(function(c){
-    const rows=list.filter(i=>i.c===c[0]).sort(byName);
+    const rows=list.filter(i=>i.c===c[0]).sort((a,b)=>(a.o||0)-(b.o||0));
     if(!rows.length) return;
     h+='<div class="subhead">'+esc(c[1])+" <span class=\"n\">"+rows.length+"</span></div>"+
        '<ul class="rows">'+rows.map(i=>rowHTML(i,opts)).join("")+"</ul>";
@@ -931,7 +948,41 @@ paintGate();
 view.addEventListener("click",e=>{
   const b=e.target.closest("[data-act]"); if(!b) return;
   const act=b.dataset.act, id=b.dataset.id;
-  if(act==="toggle"){ const it=items.get(id); if(!it) return; it.d=!it.d; render(); upItem(id,{d:it.d}); }
+  if(act==="toggle"){
+    const it=items.get(id); if(!it) return;
+    it.d=!it.d;
+    if(it.d) justDone.add(id); else justDone.delete(id);
+    render(); upItem(id,{d:it.d});
+    if(it.d) toast('"'+it.t+'" סומן כנקנה',"ביטול",()=>{
+      const x=items.get(id); if(!x) return;
+      x.d=false; justDone.delete(id); render(); upItem(id,{d:false});
+    });
+  }
+  else if(act==="up"||act==="down"){
+    const li=b.closest(".row"), sib=act==="up"?li.previousElementSibling:li.nextElementSibling;
+    if(!sib||!sib.classList.contains("row")) return;
+    const a=items.get(id), c=items.get(sib.dataset.id);
+    if(!a||!c) return;
+    const ao=a.o||0, co=c.o||0;
+    a.o=co; c.o=ao;
+    render(); upItem(a.id,{o:co}); upItem(c.id,{o:ao});
+  }
+  else if(act==="sortaz"){
+    const before=arr().map(i=>({id:i.id,o:i.o||0}));
+    const patch=[];
+    CATS.forEach(function(c,ci){
+      arr().filter(i=>i.c===c[0]).sort(byName).forEach(function(i,n){
+        const o=ci*1000+n;
+        if(i.o!==o){ i.o=o; patch.push([i.id,o]); }
+      });
+    });
+    render();
+    patch.forEach(r=>upItem(r[0],{o:r[1]}));
+    toast(patch.length+" פריטים סודרו לפי א׳-ב׳","ביטול",()=>{
+      before.forEach(r=>{ const it=items.get(r.id); if(it){ it.o=r.o; upItem(r.id,{o:r.o}); } });
+      render();
+    });
+  }
   else if(act==="del"){
     const it=items.get(id); if(!it) return;
     const rec=Object.assign({},it); delete rec.id;
