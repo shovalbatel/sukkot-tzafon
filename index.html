@@ -191,6 +191,8 @@ ul.rows{list-style:none; margin:0; padding:0}
 .row.grp .qty{min-width:96px; color:var(--ink); font-size:13.5px}
 .row.grp{align-items:flex-start; padding-top:10px; padding-bottom:10px}
 .row.grp .tick{margin-top:1px}
+.tag.split{border:1px dashed var(--line-2); background:transparent; color:var(--ink-3)}
+.tag.split:hover{border-style:solid; border-color:var(--warn); color:var(--warn)}
 .row.done .name{color:var(--ink-3); text-decoration:line-through; text-decoration-color:var(--line-2)}
 .tags{display:flex; align-items:center; gap:6px; flex:none; flex-wrap:wrap; justify-content:flex-end}
 .tag{
@@ -437,7 +439,7 @@ form.add button{
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 <script>
-window.BUILD = "2026-09-11e";
+window.BUILD = "2026-09-11f";
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyCIB2FRO9r6io9QVinFpnAsADdgihsb26E",
   authDomain: "sukkot-tzafon-2026.firebaseapp.com",
@@ -544,7 +546,9 @@ function stem(w){
   return w;
 }
 /* תיאורים שהופכים מוצר לאחר — פלפל חריף אינו פלפל אדום */
-const DIST=["חריף","אדומ","סגול","ירוק","לבנ","צהוב","מגורד","טחונ","טחון","כתוש","קפוא","מיובש","חמוצ","חמוץ","מתוק","שמנת","מלא","חלבי","מלוח","דיאט","זירו"];
+const DIST=["חריף","אדומ","סגול","ירוק","לבנ","צהוב","מגורד","טחונ","טחון","כתוש","קפוא","מיובש","חמוצ","חמוץ","מתוק","שמנת","מלא","חלבי","מלוח","דיאט","זירו","מרגז","שרי","כפרי"];
+/* מילים ראשונות רחבות מדי — שמן זית אינו שמן לטיגון, נייר סופג אינו נייר טואלט */
+const GENERIC=["רסק","שמן","נייר","כוס","ירק","פסטה","סלט","רוטב","גבינ","גבינת","לחם","מיץ","תבלין","ממרח","אבקת"];
 function baseKey(t){
   const parts=String(t||"").trim().split(/\s+/).filter(Boolean);
   let w=parts[0]||"";
@@ -554,7 +558,13 @@ function baseKey(t){
     const c=clean(parts[i]);
     for(let j=0;j<DIST.length;j++){ if(c.indexOf(DIST[j])===0){ tag="|"+DIST[j]; break; } }
   }
-  return stem(w)+tag;
+  const head=stem(w);
+  if(GENERIC.indexOf(head)>-1){
+    const idx=parts.indexOf(w);
+    const nxt=clean(parts[(idx>-1?idx:0)+1]||"");
+    if(nxt) return head+" "+stem(nxt)+tag;
+  }
+  return head+tag;
 }
 function parseQty(q){
   const s=String(q||"").trim();
@@ -600,7 +610,9 @@ function groupRowHTML(g){
     '<span class="name">'+esc(label)+(g.length>1?' <span class="cnt">'+g.length+"</span>":"")+
       (g.length>1?'<span class="sub">'+esc(detail)+"</span>":(g[0].m?'<span class="sub">'+esc(mealName(g[0].m))+"</span>":""))+
     "</span>"+
-    '<span class="tags">'+fams.map(f=>f==="shop"?'<span class="tag">רשימת קניות</span>':(f==="all"?'<span class="tag">כל משפחה</span>':famTag(f))).join("")+"</span>"+
+    '<span class="tags">'+fams.map(f=>f==="shop"?'<span class="tag">רשימת קניות</span>':(f==="all"?'<span class="tag">כל משפחה</span>':famTag(f))).join("")+
+      (g.length>1?'<button class="tag split" data-act="split" data-ids="'+ids+'" title="הפרידו את השורות האלה — הן לא אותו מוצר">פצלו</button>':"")+
+    "</span>"+
   "</li>";
 }
 
@@ -855,7 +867,7 @@ function renderMeals(){
 function groupsOf(list){
   const map={}, order=[];
   list.forEach(function(i){
-    const k=baseKey(i.t);
+    const k=i.g||baseKey(i.t);
     if(!map[k]){ map[k]=[]; order.push(k); }
     map[k].push(i);
   });
@@ -1059,6 +1071,15 @@ view.addEventListener("click",e=>{
     render(); upItem(a.id,{o:co}); upItem(c.id,{o:ao});
   }
   else if(act==="mode"){ shopMode=b.dataset.v; render(); }
+  else if(act==="split"){
+    const ids=b.dataset.ids.split(",");
+    ids.forEach(x=>{ const it=items.get(x); if(it){ it.g=x; upItem(x,{g:x}); } });
+    render();
+    toast(ids.length+" שורות הופרדו","ביטול",()=>{
+      ids.forEach(x=>{ const it=items.get(x); if(it){ delete it.g; upItem(x,{g:null}); } });
+      render();
+    });
+  }
   else if(act==="gtoggle"){
     const ids=b.dataset.ids.split(",");
     const target=!ids.every(x=>{ const it=items.get(x); return it&&it.d; });
