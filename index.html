@@ -437,7 +437,7 @@ form.add button{
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 <script>
-window.BUILD = "2026-09-11h";
+window.BUILD = "2026-09-11i";
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyCIB2FRO9r6io9QVinFpnAsADdgihsb26E",
   authDomain: "sukkot-tzafon-2026.firebaseapp.com",
@@ -1064,6 +1064,33 @@ view.addEventListener("click",e=>{
       render();
     });
   }
+  else if(act==="del"){
+    const it=items.get(id); if(!it) return;
+    const rec=Object.assign({},it); delete rec.id;
+    items.delete(id); render(); delItem(id);
+    toast('"'+it.t+'" נמחק', "ביטול", ()=>{ items.set(id,Object.assign({id:id},rec)); render(); setItem(id,rec); });
+  }
+  else if(act==="src"){ const it=items.get(id); if(!it) return; it.s=it.s==="home"?"buy":"home"; render(); upItem(id,{s:it.s}); }
+  else if(act==="fold"){ const k=b.dataset.sec; openSecs[k]=!openSecs[k]; saveOpen(); render(); }
+  else if(act==="openall"){ const want=!anyOpen(); secIds().forEach(k=>{ if(want) openSecs[k]=true; else delete openSecs[k]; }); saveOpen(); render(); }
+  else if(act==="filter"){ shopFilter=b.dataset.v; render(); }
+  else if(act==="who"){ const v=b.dataset.v; who=(who===v?"":v); render(); }
+  else if(act==="goshop"){ setTab("shop"); who="shop"; shopFilter="all"; render(); }
+  else if(act==="reconnect"){ location.replace(location.pathname+"?r="+Date.now()); }
+  else if(act==="edit"){
+    const it=items.get(id); if(!it) return;
+    editing=id; editT=it.t||""; editQ=it.q||""; editC=it.c||"dry"; editM=it.m||""; render();
+    const inp=view.querySelector('[data-fid="editt-'+id+'"]');
+    if(inp){ inp.focus(); try{ inp.setSelectionRange(inp.value.length,inp.value.length); }catch(e){} }
+  }
+  else if(act==="canceledit"){ editing=null; render(); }
+  else if(act==="editmeal"){
+    const k=b.dataset.key;
+    editingMeal=k; editMN=mealName(k); editMS=mealSub(k); render();
+    const inp=view.querySelector('[data-fid="mn-'+k+'"]');
+    if(inp){ inp.focus(); try{ inp.setSelectionRange(inp.value.length,inp.value.length); }catch(e){} }
+  }
+  else if(act==="cancelmeal"){ editingMeal=null; render(); }
 });
 
 view.addEventListener("keydown",e=>{
