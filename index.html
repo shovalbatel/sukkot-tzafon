@@ -184,6 +184,13 @@ ul.rows{list-style:none; margin:0; padding:0}
 .row.done .qty{color:var(--ink-3)}
 .name{flex:1 1 auto; min-width:0; font-size:14.5px}
 .name .sub{display:block; font-size:11.5px; color:var(--ink-3)}
+.name .cnt{
+  font-size:10px; font-weight:700; background:var(--accent-soft); color:var(--accent-ink);
+  border-radius:99px; padding:1px 6px; vertical-align:2px; font-variant-numeric:tabular-nums;
+}
+.row.grp .qty{min-width:96px; color:var(--ink); font-size:13.5px}
+.row.grp{align-items:flex-start; padding-top:10px; padding-bottom:10px}
+.row.grp .tick{margin-top:1px}
 .row.done .name{color:var(--ink-3); text-decoration:line-through; text-decoration-color:var(--line-2)}
 .tags{display:flex; align-items:center; gap:6px; flex:none; flex-wrap:wrap; justify-content:flex-end}
 .tag{
@@ -430,7 +437,7 @@ form.add button{
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 <script>
-window.BUILD = "2026-09-11c";
+window.BUILD = "2026-09-11d";
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyCIB2FRO9r6io9QVinFpnAsADdgihsb26E",
   authDomain: "sukkot-tzafon-2026.firebaseapp.com",
@@ -493,7 +500,7 @@ const DAYS=[
 let dbState="loading";
 let items=new Map(), mealDocs={}, trip={};
 let me=""; try{me=localStorage.getItem("sk-fam")||"";}catch(e){}
-let tab="meals", shopFilter="todo", who="", q="";
+let tab="meals", shopFilter="todo", who="", q="", shopMode="shelf";
 let editing=null, editT="", editQ="", editC="", editM="";
 const justDone=new Set();
 let editingMeal=null, editMN="", editMS="";
@@ -524,6 +531,71 @@ const mealSub =k=>{ const d=mealDocs[k]||{}; return d.sub!==undefined?d.sub:(MEA
 const catName=k=>CATBY[k]||k;
 const newId=()=>"x"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const byName=(a,b)=>String(a.t||"").localeCompare(String(b.t||""),"he");
+
+/* איחוד פריטים של אותו מוצר: מילה ראשונה, בלי צורת רבים ובלי מילת מידה */
+const MEASURE=["ראש","ראשי","חבילת","חבילה","שקית","שקיות","קופסת","קופסאות","בקבוק","בקבוקים","צנצנת","צנצנות","מגש","מגשי","צרור","צרורות","שישיית","גליל","גלילי"];
+const clean=w=>String(w||"").replace(/[״"׳'.,()\/]/g,"").trim();
+function stem(w){
+  w=clean(w);
+  if(w.length>4){
+    if(/יות$/.test(w)) return w.slice(0,-3);
+    if(/(ים|ות)$/.test(w)) return w.slice(0,-2);
+  }
+  return w;
+}
+/* תיאורים שהופכים מוצר לאחר — פלפל חריף אינו פלפל אדום */
+const DIST=["חריף","אדומ","סגול","ירוק","לבנ","צהוב","מגורד","טחונ","טחון","כתוש","קפוא","מיובש","חמוצ","חמוץ","מתוק","שמנת","מלא","חלבי","מלוח","דיאט","זירו"];
+function baseKey(t){
+  const parts=String(t||"").trim().split(/\s+/).filter(Boolean);
+  let w=parts[0]||"";
+  if(MEASURE.indexOf(clean(w))>-1 && parts[1]) w=parts[1];
+  let tag="";
+  for(let i=0;i<parts.length&&!tag;i++){
+    const c=clean(parts[i]);
+    for(let j=0;j<DIST.length;j++){ if(c.indexOf(DIST[j])===0){ tag="|"+DIST[j]; break; } }
+  }
+  return stem(w)+tag;
+}
+function parseQty(q){
+  const s=String(q||"").trim();
+  if(!s) return null;
+  const m=s.match(/^(\d+(?:[.,]\d+)?)\s*(?:[-–—]\s*(\d+(?:[.,]\d+)?))?\s*(.*)$/);
+  if(!m) return null;
+  const n=parseFloat(String(m[2]||m[1]).replace(",","."));
+  if(!isFinite(n)) return null;
+  return {n:n, unit:(m[3]||"").trim()};
+}
+function sumQty(list){
+  const units={}, order=[], loose=[];
+  list.forEach(function(i){
+    const p=parseQty(i.q);
+    if(!p){ if(i.q) loose.push(i.q); return; }
+    const k=clean(p.unit);
+    if(!units[k]){ units[k]={n:0,disp:p.unit}; order.push(k); }
+    units[k].n+=p.n;
+  });
+  const parts=order.map(function(k){
+    const n=Math.round(units[k].n*100)/100;
+    return n+(units[k].disp?" "+units[k].disp:"");
+  });
+  return parts.concat(loose).join(" + ");
+}
+function groupRowHTML(g){
+  const ids=g.map(i=>i.id).join(",");
+  const allDone=g.every(i=>i.d);
+  const label=g.slice().sort((a,b)=>String(a.t).length-String(b.t).length)[0].t;
+  const fams=[];
+  g.forEach(i=>{ if(i.b&&fams.indexOf(i.b)<0) fams.push(i.b); });
+  const detail=g.map(i=>(i.q||"—")+(i.m?" · "+mealName(i.m):"")).join("   ·   ");
+  return '<li class="row grp'+(allDone?" done":"")+'">'+
+    '<button class="tick" data-act="gtoggle" data-ids="'+ids+'" aria-pressed="'+(allDone?"true":"false")+'" aria-label="סימון '+esc(label)+'">✓</button>'+
+    '<span class="qty num">'+esc(sumQty(g))+"</span>"+
+    '<span class="name">'+esc(label)+(g.length>1?' <span class="cnt">'+g.length+"</span>":"")+
+      (g.length>1?'<span class="sub">'+esc(detail)+"</span>":(g[0].m?'<span class="sub">'+esc(mealName(g[0].m))+"</span>":""))+
+    "</span>"+
+    '<span class="tags">'+fams.map(f=>f==="shop"?'<span class="tag">רשימת קניות</span>':(f==="all"?'<span class="tag">כל משפחה</span>':famTag(f))).join("")+"</span>"+
+  "</li>";
+}
 
 /* מנחש את המדף לפי שם הפריט. הסדר קובע — הכלל הראשון שמתאים מנצח. */
 const CATHINTS=[
@@ -773,6 +845,15 @@ function renderMeals(){
   return h;
 }
 
+function groupsOf(list){
+  const map={}, order=[];
+  list.forEach(function(i){
+    const k=baseKey(i.t);
+    if(!map[k]){ map[k]=[]; order.push(k); }
+    map[k].push(i);
+  });
+  return order.map(k=>map[k]);
+}
 function renderShop(){
   const qq=q.trim();
   forceOpen=!!qq;
@@ -797,8 +878,10 @@ function renderShop(){
     '<button class="chip" data-act="filter" data-v="all" aria-pressed="'+(shopFilter==="all")+'">הכל</button>'+
     '<button class="chip" data-act="who" data-v="shop" aria-pressed="'+(who==="shop")+'">רשימת הקנייה המשותפת</button>'+
     '<button class="chip" data-act="who" data-v="mine" aria-pressed="'+(who==="mine")+'"'+(me?"":" disabled title=\"בחרו קודם את המשפחה שלכם למעלה\"")+'>רק מה שאני מביא</button>'+
+    '<button class="chip" data-act="mode" data-v="shelf" aria-pressed="'+(shopMode==="shelf")+'">לפי מדף</button>'+
+    '<button class="chip" data-act="mode" data-v="sum" aria-pressed="'+(shopMode==="sum")+'">סיכום לקנייה</button>'+
     openAllBtn()+
-    '<button class="chip" data-act="sortaz">סדרו הכל לפי א׳-ב׳</button>'+
+    (shopMode==="shelf"?'<button class="chip" data-act="sortaz">סדרו הכל לפי א׳-ב׳</button>':"")+
     '<button class="chip" data-act="allshop" style="margin-inline-start:auto">שייכו את כל מה שלא משויך לרשימת הקניות</button>'+
     "</div>";
 
@@ -820,8 +903,9 @@ function renderShop(){
         '<div class="chefline"><span>שייכו את כל מה שלא משויך בקטגוריה ל־</span>'+
           '<select data-act="bulk" data-key="'+ck+'" aria-label="שיוך כל הקטגוריה"><option value="">בחרו…</option><option value="shop">רשימת קניות משותפת</option>'+
           FAMS.map(f=>'<option value="'+f.k+'">'+esc(f.n)+"</option>").join("")+"</select></div>"+
-        '<ul class="rows">'+list.map(i=>rowHTML(i,{showMeal:true,move:true})).join("")+"</ul>"+
-        addForm("cat",ck,"פריט נוסף לקטגוריה…")+
+        (shopMode==="sum"?'<ul class="rows">'+groupsOf(list).map(groupRowHTML).join("")+"</ul>"
+                         :'<ul class="rows">'+list.map(i=>rowHTML(i,{showMeal:true,move:true})).join("")+"</ul>")+
+        (shopMode==="sum"?"":addForm("cat",ck,"פריט נוסף לקטגוריה…"))+
       "</div></section>";
   });
   if(!base.length) h+='<div class="empty card">אין פריטים שמתאימים לסינון הנוכחי.</div>';
@@ -966,6 +1050,18 @@ view.addEventListener("click",e=>{
     const ao=a.o||0, co=c.o||0;
     a.o=co; c.o=ao;
     render(); upItem(a.id,{o:co}); upItem(c.id,{o:ao});
+  }
+  else if(act==="mode"){ shopMode=b.dataset.v; render(); }
+  else if(act==="gtoggle"){
+    const ids=b.dataset.ids.split(",");
+    const target=!ids.every(x=>{ const it=items.get(x); return it&&it.d; });
+    const names=[];
+    ids.forEach(x=>{ const it=items.get(x); if(!it) return; it.d=target; names.push(it.t); if(target) justDone.add(x); else justDone.delete(x); upItem(x,{d:target}); });
+    render();
+    if(target) toast(ids.length>1?(names[0]+" — "+ids.length+" שורות סומנו כנקנו"):('"'+names[0]+'" סומן כנקנה'),"ביטול",()=>{
+      ids.forEach(x=>{ const it=items.get(x); if(it){ it.d=false; justDone.delete(x); upItem(x,{d:false}); } });
+      render();
+    });
   }
   else if(act==="sortaz"){
     const before=arr().map(i=>({id:i.id,o:i.o||0}));
