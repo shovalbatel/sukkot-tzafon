@@ -438,7 +438,7 @@ form.add button{
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 <script>
-window.BUILD = "2026-09-12d";
+window.BUILD = "2026-09-12e";
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyCIB2FRO9r6io9QVinFpnAsADdgihsb26E",
   authDomain: "sukkot-tzafon-2026.firebaseapp.com",
@@ -515,7 +515,7 @@ function secIds(){
   if(tab==="meals") return MEALS.map(m=>"meal-"+m.k);
   if(tab==="shop")  return CATS.map(c=>"shop-"+c[0]);
   if(tab==="fams")  return FAMS.map(f=>"fam-"+f.k);
-  if(tab==="mine")  return ["mine-shared"].concat(privCats().map(c=>"priv-"+c.id)).concat(["priv-none"]);
+  if(tab==="mine")  return ["mine-buy","mine-home"].concat(privCats().map(c=>"priv-"+c.id)).concat(["priv-none"]);
   return [];
 }
 const anyOpen=()=>secIds().some(id=>openSecs[id]);
@@ -1039,12 +1039,15 @@ function renderMine(){
   if(!me) return '<div class="notice">בחרו את המשפחה שלכם בכותרת למעלה כדי לראות את הרשימה שלכם.</div>';
   const f=FAMBY[me];
   const bring=listAll().filter(i=>i.b===me||i.b==="all");
-  const doneN=bring.filter(i=>i.d).length;
+  const toBuy=bring.filter(i=>i.s!=="home");
+  const fromHome=bring.filter(i=>i.s==="home");
   let h='<div class="notice"><b>'+esc(f.n)+'</b> — החלק העליון מרכז את מה שהוקצה לכם מהרשימה המשותפת. החלק התחתון פרטי לכם: הוא מוצג רק בטאב הזה ולא בשום מקום אחר באתר.<span class="hint" style="display:block;margin-top:6px">שימו לב: הרשימה נשמרת בשרת בלי סיסמה, אז אל תכתבו בה דברים רגישים.</span></div>';
-  const idA="mine-shared";
-  h+='<section class="card" data-open="'+(isOpen(idA)?1:0)+'">'+
-    foldHead(idA,'<span><span class="eyebrow">מהרשימה המשותפת</span><h3>מה אנחנו מביאים</h3></span><span class="meta">'+barHTML(doneN,bring.length)+"</span>")+
-    '<div class="c-body">'+(bring.length?groupedRows(bring,{showMeal:true}):'<div class="empty">לא שויכו לכם פריטים.</div>')+"</div></section>";
+  h+='<section class="card" data-open="'+(isOpen("mine-buy")?1:0)+'">'+
+    foldHead("mine-buy",'<span><span class="eyebrow">מהרשימה המשותפת</span><h3>מה אנחנו קונים</h3><div class="sub">לוקחים בסופר</div></span><span class="meta">'+barHTML(toBuy.filter(i=>i.d).length,toBuy.length)+"</span>")+
+    '<div class="c-body">'+(toBuy.length?groupedRows(toBuy,{showMeal:true}):'<div class="empty">לא שויכו לכם פריטים לקנייה.</div>')+"</div></section>";
+  h+='<section class="card" data-open="'+(isOpen("mine-home")?1:0)+'">'+
+    foldHead("mine-home",'<span><span class="eyebrow">מהרשימה המשותפת</span><h3>מה אנחנו מביאים מהבית</h3><div class="sub">לא קונים — רק לא לשכוח לארוז</div></span><span class="meta">'+barHTML(fromHome.filter(i=>i.d).length,fromHome.length)+"</span>")+
+    '<div class="c-body">'+(fromHome.length?groupedRows(fromHome,{showMeal:true}):'<div class="empty">אין פריטים שמסומנים «מהבית».</div>')+"</div></section>";
   h+='<div class="daybar"><h2>הרשימה הפרטית שלנו</h2><span class="rule"></span></div>';
   h+='<form class="add" data-pcatadd="1" style="border:1px solid var(--line); border-radius:var(--radius); margin-bottom:12px">'+
     '<input class="t" name="t" placeholder="קטגוריה חדשה — בגדים, תרופות, ציוד לתינוק…" aria-label="קטגוריה חדשה" autocomplete="off" required>'+
