@@ -438,7 +438,7 @@ form.add button{
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 <script>
-window.BUILD = "2026-09-12c";
+window.BUILD = "2026-09-12d";
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyCIB2FRO9r6io9QVinFpnAsADdgihsb26E",
   authDomain: "sukkot-tzafon-2026.firebaseapp.com",
@@ -986,10 +986,9 @@ function renderFams(){
     "<h3>הקנייה המשותפת</h3></span>"+'<span class="meta">'+barHTML(sl.filter(i=>i.d).length,sl.length)+"</span></div>"+
     '<div class="assigned"><b class="num">'+sl.filter(i=>!i.d).length+"</b><span>פריטים ברשימת הקנייה המשותפת נותרו לקנות</span>"+
     '<button class="chip" data-act="goshop" style="margin-inline-start:auto">פתחו את הרשימה</button></div></section>'+
-    '<div class="notice">לחצו על שם משפחה כדי לראות בדיוק מה היא מביאה. פריט שכל משפחה צריכה להביא לעצמה — סמנו אותו «כל משפחה לעצמה» בבורר «מי מביא», והוא יופיע אצל כולן.</div>';
+    '<div class="notice">לחצו על שם משפחה כדי לראות בדיוק מה היא מביאה. פריט שכל משפחה צריכה להביא לעצמה — סמנו אותו «כל משפחה לעצמה» בבורר «מי מביא», והוא יופיע אצל כולן. הרשימות הפרטיות נמצאות בטאב «הרשימה שלי» ולא מוצגות כאן.</div>';
   FAMS.forEach(function(f){
     const mine=f.k===me;
-    const own=arr().filter(i=>i.c==="personal"&&i.f===f.k);
     const buy=arr().filter(i=>i.c!=="personal"&&i.b===f.k);
     const done=buy.filter(i=>i.d).length;
     const chefOf=MEALS.filter(m=>(mealDocs[m.k]||{}).chef===f.k);
@@ -1005,9 +1004,6 @@ function renderFams(){
         (buy.length?groupedRows(buy,{showMeal:true}):'<div class="empty">לא שויכו למשפחה הזו פריטים.</div>')+
         (everyone.length?'<div class="subhead everyone">כל משפחה מביאה לעצמה <span class="n">'+everyone.length+"</span></div>"+
           '<ul class="rows">'+everyone.map(i=>rowHTML(i,{showCat:true})).join("")+"</ul>":"")+
-        '<div class="subhead">הרשימה האישית של המשפחה</div>'+
-        (own.length?'<ul class="rows">'+own.map(i=>rowHTML(i,{noBuyer:true})).join("")+"</ul>":'<div class="empty">אין עדיין רשימה אישית.</div>')+
-        addForm("fam",f.k,"מה להביא מהבית?")+
       "</div></section>";
   });
   return h;
@@ -1381,7 +1377,6 @@ view.addEventListener("submit",e=>{
   const kind=f.dataset.add, key=f.dataset.key;
   if(kind==="meal") addItem({t:t,q:qv,m:key,c:guessCat(t),b:"shop"});
   else if(kind==="cat") addItem({t:t,q:qv,c:key,b:key==="gear"?"":"shop",s:"buy"});
-  else if(kind==="fam") addItem({t:t,q:qv,c:"personal",f:key,s:"home"});
   f.reset();
   const inp=f.querySelector("input.t"); if(inp) inp.focus();
 });
