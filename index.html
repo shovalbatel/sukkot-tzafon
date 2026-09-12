@@ -42,6 +42,42 @@ select,input{font:inherit; color:inherit}
 :focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:4px}
 .num{font-variant-numeric:tabular-nums}
 
+/* ---------- הרשימה הפרטית של המשפחה ---------- */
+const PKEY=()=>"sk-priv-"+me;
+function privLocalSave(){ try{ localStorage.setItem(PKEY(),JSON.stringify(priv)); }catch(e){} }
+function privLocalLoad(){
+  try{ const d=JSON.parse(localStorage.getItem(PKEY())||"null"); if(d) return {items:d.items||{},cats:d.cats||{}}; }catch(e){}
+  return {items:{},cats:{}};
+}
+function watchPrivate(){
+  if(privOff){ privOff(); privOff=null; }
+  priv={items:{},cats:{}};
+  if(!me){ render(); return; }
+  if(!fdb){ priv=privLocalLoad(); render(); return; }
+  const ref=fdb.ref("private/"+me);
+  const cb=ref.on("value",function(s){
+    const d=s.val()||{};
+    priv={items:d.items||{},cats:d.cats||{}};
+    render();
+  },function(){ priv=privLocalLoad(); render(); });
+  privOff=function(){ ref.off("value",cb); };
+}
+function pItem(id,val){
+  if(val===null) delete priv.items[id]; else priv.items[id]=val;
+  if(fdb&&me) wr(()=>fdb.ref("private/"+me+"/items/"+id).set(val)); else privLocalSave();
+  render();
+}
+function pCat(id,val){
+  if(val===null){
+    delete priv.cats[id];
+    Object.keys(priv.items).forEach(k=>{ if(priv.items[k].cat===id){ priv.items[k].cat=""; if(fdb&&me) wr(()=>fdb.ref("private/"+me+"/items/"+k+"/cat").set("")); } });
+  } else priv.cats[id]=val;
+  if(fdb&&me) wr(()=>fdb.ref("private/"+me+"/cats/"+id).set(val)); else privLocalSave();
+  render();
+}
+const privCats=()=>Object.keys(priv.cats||{}).map(k=>Object.assign({id:k},priv.cats[k])).sort((a,b)=>(a.o||0)-(b.o||0));
+const privItems=()=>Object.keys(priv.items||{}).map(k=>Object.assign({id:k},priv.items[k])).sort((a,b)=>(a.o||0)-(b.o||0));
+
 /* ---------- header ---------- */
 header.top{
   position:sticky; top:0; z-index:30;
@@ -417,6 +453,7 @@ form.add button{
       <nav class="tabs" id="tabs" role="tablist">
         <button role="tab" data-tab="meals" aria-selected="true">ארוחות</button>
         <button role="tab" data-tab="shop" aria-selected="false">רשימת קניות <span class="cnt" id="cShop">–</span></button>
+        <button role="tab" data-tab="mine" aria-selected="false">הרשימה שלי <span class="cnt" id="cMine">–</span></button>
         <button role="tab" data-tab="fams" aria-selected="false">רשימות המשפחות</button>
       </nav>
     </div>
@@ -437,7 +474,7 @@ form.add button{
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 <script>
-window.BUILD = "2026-09-12a";
+window.BUILD = "2026-09-12b";
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyCIB2FRO9r6io9QVinFpnAsADdgihsb26E",
   authDomain: "sukkot-tzafon-2026.firebaseapp.com",
@@ -502,6 +539,8 @@ let me=""; try{me=localStorage.getItem("sk-fam")||"";}catch(e){}
 let tab="meals", shopFilter="todo", who="", q="", shopMode="shelf";
 let editing=null, editT="", editQ="", editC="", editM="";
 const justDone=new Set();
+let priv={items:{},cats:{}}, privOff=null;
+let pediting=null, pT="", pQ="", pcatEditing=null, pcatName="";
 let editingMeal=null, editMN="", editMS="";
 let openSecs={};
 try{ openSecs=JSON.parse(localStorage.getItem("sk-open")||"{}")||{}; }catch(e){ openSecs={}; }
@@ -512,6 +551,7 @@ function secIds(){
   if(tab==="meals") return MEALS.map(m=>"meal-"+m.k);
   if(tab==="shop")  return CATS.map(c=>"shop-"+c[0]);
   if(tab==="fams")  return FAMS.map(f=>"fam-"+f.k);
+  if(tab==="mine")  return ["mine-shared"].concat(privCats().map(c=>"priv-"+c.id)).concat(["priv-none"]);
   return [];
 }
 const anyOpen=()=>secIds().some(id=>openSecs[id]);
@@ -701,6 +741,9 @@ function paintHeader(){
   arc.setAttribute("stroke", pct===100?"var(--good)":"var(--accent)");
   document.getElementById("ringPct").textContent=tot?pct+"%":"—";
   document.getElementById("gaugeMain").textContent=tot?done+" / "+tot:"— / —";
+  const mineLeft=me?listAll().filter(i=>(i.b===me||i.b==="all")&&!i.d).length
+                     +Object.keys(priv.items||{}).filter(k=>!priv.items[k].d).length:0;
+  document.getElementById("cMine").textContent=me?String(mineLeft):"–";
   const rest=listAll().filter(i=>!i.d).length;
   document.getElementById("cShop").textContent=items.size?String(rest):"–";
   document.getElementById("hdrDates").textContent=trip.dates||"חמישי 24.9 — שבת 26.9";
@@ -970,6 +1013,78 @@ function renderFams(){
   return h;
 }
 
+function privCatSel(it){
+  const cats=privCats();
+  if(!cats.length) return "";
+  return '<select class="buyer'+(it.cat?" set":"")+'" data-act="pmove" data-id="'+it.id+'" aria-label="קטגוריה">'+
+    '<option value="">ללא קטגוריה</option>'+
+    cats.map(c=>'<option value="'+c.id+'"'+(it.cat===c.id?" selected":"")+">"+esc(c.n)+"</option>").join("")+"</select>";
+}
+function privRowHTML(it){
+  if(pediting===it.id){
+    return '<li class="row editing" data-id="'+it.id+'"><form class="editform" data-pedit="'+it.id+'">'+
+      '<div class="ef-line">'+
+        '<input class="q" data-pfield="q" data-fid="peq-'+it.id+'" value="'+esc(pQ)+'" placeholder="כמות" aria-label="כמות" autocomplete="off">'+
+        '<input class="t" data-pfield="t" data-fid="pet-'+it.id+'" value="'+esc(pT)+'" aria-label="שם הפריט" autocomplete="off" required>'+
+        "<button>שמירה</button>"+
+        '<button type="button" class="ghost" data-act="pcancel">ביטול</button>'+
+      "</div></form></li>";
+  }
+  return '<li class="row'+(it.d?" done":"")+'" data-id="'+it.id+'">'+
+    '<button class="tick" data-act="ptoggle" data-id="'+it.id+'" aria-pressed="'+(it.d?"true":"false")+'" aria-label="סימון '+esc(it.t)+'">✓</button>'+
+    '<span class="qty num" data-act="pedit" data-id="'+it.id+'" role="button" tabindex="0" title="לחצו לעריכה">'+esc(it.q||"")+"</span>"+
+    '<span class="name" data-act="pedit" data-id="'+it.id+'" role="button" tabindex="0" title="לחצו לעריכה">'+esc(it.t)+"</span>"+
+    '<span class="tags">'+privCatSel(it)+"</span>"+
+    '<span class="rowact"><button class="kill" data-act="pdel" data-id="'+it.id+'" aria-label="מחיקת '+esc(it.t)+'">×</button></span>'+
+  "</li>";
+}
+function renderMine(){
+  forceOpen=false;
+  if(!me) return '<div class="notice">בחרו את המשפחה שלכם בכותרת למעלה כדי לראות את הרשימה שלכם.</div>';
+  const f=FAMBY[me];
+  const bring=listAll().filter(i=>i.b===me||i.b==="all");
+  const doneN=bring.filter(i=>i.d).length;
+  let h='<div class="notice"><b>'+esc(f.n)+'</b> — החלק העליון מרכז את מה שהוקצה לכם מהרשימה המשותפת. החלק התחתון פרטי לכם: הוא מוצג רק בטאב הזה ולא בשום מקום אחר באתר.<span class="hint" style="display:block;margin-top:6px">שימו לב: הרשימה נשמרת בשרת בלי סיסמה, אז אל תכתבו בה דברים רגישים.</span></div>';
+  const idA="mine-shared";
+  h+='<section class="card" data-open="'+(isOpen(idA)?1:0)+'">'+
+    foldHead(idA,'<span><span class="eyebrow">מהרשימה המשותפת</span><h3>מה אנחנו מביאים</h3></span><span class="meta">'+barHTML(doneN,bring.length)+"</span>")+
+    '<div class="c-body">'+(bring.length?groupedRows(bring,{showMeal:true}):'<div class="empty">לא שויכו לכם פריטים.</div>')+"</div></section>";
+  h+='<div class="daybar"><h2>הרשימה הפרטית שלנו</h2><span class="rule"></span></div>';
+  h+='<form class="add" data-pcatadd="1" style="border:1px solid var(--line); border-radius:var(--radius); margin-bottom:12px">'+
+    '<input class="t" name="t" placeholder="קטגוריה חדשה — בגדים, תרופות, ציוד לתינוק…" aria-label="קטגוריה חדשה" autocomplete="off" required>'+
+    "<button>הוספת קטגוריה</button></form>";
+  const cats=privCats(), all=privItems();
+  const buckets=cats.concat([{id:"",n:"ללא קטגוריה"}]);
+  let any=false;
+  buckets.forEach(function(c){
+    const rows=all.filter(i=>(i.cat||"")===c.id);
+    if(!c.id&&!rows.length) return;
+    any=true;
+    const id="priv-"+(c.id||"none");
+    const head=(pcatEditing===c.id&&c.id)
+      ? '<div class="c-head editing"><form class="mealedit" data-pcatedit="'+c.id+'">'+
+          '<input class="n" data-pcatfield="1" data-fid="pcn-'+c.id+'" value="'+esc(pcatName)+'" aria-label="שם הקטגוריה" required>'+
+          "<button>שמירה</button><button type=\"button\" class=\"ghost\" data-act=\"pcatcancel\">ביטול</button></form></div>"
+      : foldHead(id,'<span><h3>'+esc(c.n)+"</h3></span>"+'<span class="meta">'+barHTML(rows.filter(i=>i.d).length,rows.length)+"</span>",
+          c.id?'<button class="c-edit" data-act="pcatname" data-id="'+c.id+'">שם</button>'+
+               '<button class="c-edit" data-act="pcatdel" data-id="'+c.id+'">מחיקה</button>':"");
+    h+='<section class="card" data-open="'+(isOpen(id)?1:0)+'">'+head+
+      '<div class="c-body">'+
+        (rows.length?'<ul class="rows">'+rows.map(privRowHTML).join("")+"</ul>":'<div class="empty">ריק בינתיים.</div>')+
+        '<form class="add" data-padd="'+c.id+'">'+
+          '<input class="q" name="q" placeholder="כמות" aria-label="כמות" autocomplete="off">'+
+          '<input class="t" name="t" placeholder="מה להוסיף?" aria-label="פריט" autocomplete="off" required>'+
+          "<button>הוספה</button></form>"+
+      "</div></section>";
+  });
+  if(!any) h+='<div class="notice">עוד אין לכם רשימה פרטית. פתחו קטגוריה למעלה, או הוסיפו פריט בלי קטגוריה.</div>'+
+    '<form class="add" data-padd="" style="border:1px solid var(--line); border-radius:var(--radius)">'+
+      '<input class="q" name="q" placeholder="כמות" aria-label="כמות" autocomplete="off">'+
+      '<input class="t" name="t" placeholder="מה להוסיף?" aria-label="פריט" autocomplete="off" required>'+
+      "<button>הוספה</button></form>";
+  return h;
+}
+
 /* ---------- render ---------- */
 function render(){
   const ae=document.activeElement;
@@ -979,7 +1094,7 @@ function render(){
   view.querySelectorAll("[data-fid]").forEach(el=>{vals[el.getAttribute("data-fid")]=el.value;});
   let html;
   if(dbState==="loading") html=skeleton();
-  else html=(dbState==="local"?offNotice():"")+(tab==="meals"?renderMeals():tab==="shop"?renderShop():renderFams());
+  else html=(dbState==="local"?offNotice():"")+(tab==="meals"?renderMeals():tab==="shop"?renderShop():tab==="mine"?renderMine():renderFams());
   view.innerHTML=html;
   view.querySelectorAll("[data-fid]").forEach(el=>{
     const v=vals[el.getAttribute("data-fid")];
@@ -1006,7 +1121,7 @@ function setMe(v){
   me=v; fp.value=v;
   try{ localStorage.setItem("sk-fam",me); }catch(e){}
   if(presSelf) presSelf.update({fam:me||""});
-  paintGate(); render();
+  paintGate(); watchPrivate(); render();
 }
 fp.addEventListener("change",()=>setMe(fp.value));
 
@@ -1091,13 +1206,49 @@ view.addEventListener("click",e=>{
     if(inp){ inp.focus(); try{ inp.setSelectionRange(inp.value.length,inp.value.length); }catch(e){} }
   }
   else if(act==="cancelmeal"){ editingMeal=null; render(); }
+  else if(act==="ptoggle"){
+    const it=priv.items[id]; if(!it) return;
+    const nd=!it.d;
+    pItem(id,Object.assign({},it,{d:nd}));
+    if(nd) toast('"'+it.t+'" סומן','ביטול',()=>{ const x=priv.items[id]; if(x) pItem(id,Object.assign({},x,{d:false})); });
+  }
+  else if(act==="pedit"){
+    const it=priv.items[id]; if(!it) return;
+    pediting=id; pT=it.t||""; pQ=it.q||""; render();
+    const inp=view.querySelector('[data-fid="pet-'+id+'"]');
+    if(inp){ inp.focus(); try{ inp.setSelectionRange(inp.value.length,inp.value.length); }catch(e){} }
+  }
+  else if(act==="pcancel"){ pediting=null; render(); }
+  else if(act==="pdel"){
+    const it=priv.items[id]; if(!it) return;
+    const rec=Object.assign({},it);
+    pItem(id,null);
+    toast('"'+rec.t+'" נמחק','ביטול',()=>pItem(id,rec));
+  }
+  else if(act==="pcatname"){
+    const c=priv.cats[id]; if(!c) return;
+    pcatEditing=id; pcatName=c.n||""; render();
+    const inp=view.querySelector('[data-fid="pcn-'+id+'"]');
+    if(inp){ inp.focus(); try{ inp.setSelectionRange(inp.value.length,inp.value.length); }catch(e){} }
+  }
+  else if(act==="pcatcancel"){ pcatEditing=null; render(); }
+  else if(act==="pcatdel"){
+    const c=priv.cats[id]; if(!c) return;
+    const rec=Object.assign({},c);
+    const moved=Object.keys(priv.items).filter(k=>priv.items[k].cat===id);
+    pCat(id,null);
+    toast('הקטגוריה "'+rec.n+'" נמחקה'+(moved.length?" — "+moved.length+" פריטים עברו ל«ללא קטגוריה»":""),"ביטול",()=>{
+      pCat(id,rec);
+      moved.forEach(k=>{ const x=priv.items[k]; if(x) pItem(k,Object.assign({},x,{cat:id})); });
+    });
+  }
 });
 
 view.addEventListener("keydown",e=>{
   const t=e.target;
   if(t&&t.dataset&&t.dataset.act==="edit"&&(e.key==="Enter"||e.key===" ")){ e.preventDefault(); t.click(); }
 });
-document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&(editing||editingMeal)){ editing=null; editingMeal=null; render(); } });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&(editing||editingMeal||pediting||pcatEditing)){ editing=null; editingMeal=null; pediting=null; pcatEditing=null; render(); } });
 
 view.addEventListener("change",e=>{
   const el=e.target, act=el.dataset.act;
@@ -1106,6 +1257,7 @@ view.addEventListener("change",e=>{
     else if(el.dataset.editfield==="m") editM=el.value;
     return;
   }
+  if(act==="pmove"){ const it=priv.items[el.dataset.id]; if(it) pItem(el.dataset.id,Object.assign({},it,{cat:el.value})); return; }
   if(act==="buyer"){ const it=items.get(el.dataset.id); if(!it) return; it.b=el.value; render(); upItem(it.id,{b:it.b}); }
   else if(act==="chef"){ const k=el.dataset.key; mealDocs[k]=Object.assign({},mealDocs[k],{chef:el.value}); render(); setMeal(k,{chef:el.value}); }
   else if(act==="bulk"){
@@ -1137,6 +1289,12 @@ view.addEventListener("input",e=>{
     debounce("trip-"+f,()=>{ setTrip({[f]:v}); paintHeader(); },500);
     return;
   }
+  if(el.dataset.pfield){
+    if(el.dataset.pfield==="t") pT=el.value;
+    else if(el.dataset.pfield==="q") pQ=el.value;
+    return;
+  }
+  if(el.dataset.pcatfield){ pcatName=el.value; return; }
   if(el.dataset.mealfield){
     if(el.dataset.mealfield==="n") editMN=el.value;
     else if(el.dataset.mealfield==="s") editMS=el.value;
@@ -1150,6 +1308,44 @@ view.addEventListener("input",e=>{
 });
 
 view.addEventListener("submit",e=>{
+  const pe=e.target.closest("form[data-pedit]");
+  if(pe){
+    e.preventDefault();
+    const id=pe.dataset.pedit, it=priv.items[id], t=pT.trim(), qv=pQ.trim();
+    pediting=null;
+    if(it&&t) pItem(id,Object.assign({},it,{t:t,q:qv})); else render();
+    return;
+  }
+  const pc=e.target.closest("form[data-pcatedit]");
+  if(pc){
+    e.preventDefault();
+    const id=pc.dataset.pcatedit, c=priv.cats[id], n=pcatName.trim();
+    pcatEditing=null;
+    if(c&&n) pCat(id,Object.assign({},c,{n:n})); else render();
+    return;
+  }
+  const pa=e.target.closest("form[data-padd]");
+  if(pa){
+    e.preventDefault();
+    const t=pa.querySelector("input.t").value.trim(); if(!t) return;
+    const qv=(pa.querySelector("input.q")||{value:""}).value.trim();
+    const max=privItems().reduce((m,i)=>Math.max(m,i.o||0),0);
+    pItem(newId(),{t:t,q:qv,cat:pa.dataset.padd||"",d:false,o:max+1});
+    pa.reset();
+    const inp=pa.querySelector("input.t"); if(inp) inp.focus();
+    return;
+  }
+  const pca=e.target.closest("form[data-pcatadd]");
+  if(pca){
+    e.preventDefault();
+    const n=pca.querySelector("input.t").value.trim(); if(!n) return;
+    const max=privCats().reduce((m,c)=>Math.max(m,c.o||0),0);
+    const id=newId();
+    openSecs["priv-"+id]=true; saveOpen();
+    pCat(id,{n:n,o:max+1});
+    pca.reset();
+    return;
+  }
   const mf=e.target.closest("form.mealedit");
   if(mf){
     e.preventDefault();
@@ -1201,7 +1397,7 @@ function seedRemote(){
     fdb.ref("meta/trip").update(clone(window.SEED_TRIP));
   });
 }
-function goLocal(){ dbState="local"; fdb=null; localApply(localLoad()); render(); paintPresence(null); }
+function goLocal(){ dbState="local"; fdb=null; localApply(localLoad()); priv=me?privLocalLoad():{items:{},cats:{}}; render(); paintPresence(null); }
 
 function initPresence(){
   const pr=fdb.ref("presence");
@@ -1240,6 +1436,7 @@ function boot(tries){
     fdb.ref("meals").on("value",s=>{ mealDocs=s.val()||{}; render(); },()=>{});
     fdb.ref("meta/trip").on("value",s=>{ trip=s.val()||{}; render(); },()=>{});
     initPresence();
+    watchPrivate();
     paintPresence(null);
   }catch(e){ console.warn(e); goLocal(); }
 }

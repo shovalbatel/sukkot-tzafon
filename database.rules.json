@@ -3,6 +3,7 @@
     "items":    { ".read": true, ".write": true },
     "meals":    { ".read": true, ".write": true },
     "meta":     { ".read": true, ".write": true },
-    "presence": { ".read": true, ".write": true }
+    "presence": { ".read": true, ".write": true },
+    "private":  { ".read": true, ".write": true }
   }
 }
