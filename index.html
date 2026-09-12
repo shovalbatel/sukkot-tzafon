@@ -437,7 +437,7 @@ form.add button{
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 <script>
-window.BUILD = "2026-09-11i";
+window.BUILD = "2026-09-12a";
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyCIB2FRO9r6io9QVinFpnAsADdgihsb26E",
   authDomain: "sukkot-tzafon-2026.firebaseapp.com",
@@ -1125,7 +1125,11 @@ const timers={};
 function debounce(key,fn,ms){ clearTimeout(timers[key]); timers[key]=setTimeout(fn,ms); }
 view.addEventListener("input",e=>{
   const el=e.target;
-  if(el.dataset.editfield){ if(el.dataset.editfield==="t") editT=el.value; else editQ=el.value; return; }
+  if(el.dataset.editfield){
+    if(el.dataset.editfield==="t") editT=el.value;
+    else if(el.dataset.editfield==="q") editQ=el.value;
+    return;
+  }
   if(el.id==="sq"){ q=el.value; debounce("search",render,180); return; }
   if(el.dataset.trip!=null&&el.dataset.trip!==""){
     const f=el.dataset.trip, v=el.value;
@@ -1133,7 +1137,11 @@ view.addEventListener("input",e=>{
     debounce("trip-"+f,()=>{ setTrip({[f]:v}); paintHeader(); },500);
     return;
   }
-  if(el.dataset.mealfield){ if(el.dataset.mealfield==="n") editMN=el.value; else editMS=el.value; return; }
+  if(el.dataset.mealfield){
+    if(el.dataset.mealfield==="n") editMN=el.value;
+    else if(el.dataset.mealfield==="s") editMS=el.value;
+    return;
+  }
   if(el.dataset.mnote){
     const k=el.dataset.mnote, v=el.value;
     mealDocs[k]=Object.assign({},mealDocs[k],{note:v});
