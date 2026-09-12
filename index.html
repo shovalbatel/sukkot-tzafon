@@ -42,42 +42,6 @@ select,input{font:inherit; color:inherit}
 :focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:4px}
 .num{font-variant-numeric:tabular-nums}
 
-/* ---------- הרשימה הפרטית של המשפחה ---------- */
-const PKEY=()=>"sk-priv-"+me;
-function privLocalSave(){ try{ localStorage.setItem(PKEY(),JSON.stringify(priv)); }catch(e){} }
-function privLocalLoad(){
-  try{ const d=JSON.parse(localStorage.getItem(PKEY())||"null"); if(d) return {items:d.items||{},cats:d.cats||{}}; }catch(e){}
-  return {items:{},cats:{}};
-}
-function watchPrivate(){
-  if(privOff){ privOff(); privOff=null; }
-  priv={items:{},cats:{}};
-  if(!me){ render(); return; }
-  if(!fdb){ priv=privLocalLoad(); render(); return; }
-  const ref=fdb.ref("private/"+me);
-  const cb=ref.on("value",function(s){
-    const d=s.val()||{};
-    priv={items:d.items||{},cats:d.cats||{}};
-    render();
-  },function(){ priv=privLocalLoad(); render(); });
-  privOff=function(){ ref.off("value",cb); };
-}
-function pItem(id,val){
-  if(val===null) delete priv.items[id]; else priv.items[id]=val;
-  if(fdb&&me) wr(()=>fdb.ref("private/"+me+"/items/"+id).set(val)); else privLocalSave();
-  render();
-}
-function pCat(id,val){
-  if(val===null){
-    delete priv.cats[id];
-    Object.keys(priv.items).forEach(k=>{ if(priv.items[k].cat===id){ priv.items[k].cat=""; if(fdb&&me) wr(()=>fdb.ref("private/"+me+"/items/"+k+"/cat").set("")); } });
-  } else priv.cats[id]=val;
-  if(fdb&&me) wr(()=>fdb.ref("private/"+me+"/cats/"+id).set(val)); else privLocalSave();
-  render();
-}
-const privCats=()=>Object.keys(priv.cats||{}).map(k=>Object.assign({id:k},priv.cats[k])).sort((a,b)=>(a.o||0)-(b.o||0));
-const privItems=()=>Object.keys(priv.items||{}).map(k=>Object.assign({id:k},priv.items[k])).sort((a,b)=>(a.o||0)-(b.o||0));
-
 /* ---------- header ---------- */
 header.top{
   position:sticky; top:0; z-index:30;
@@ -474,7 +438,7 @@ form.add button{
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 <script>
-window.BUILD = "2026-09-12b";
+window.BUILD = "2026-09-12c";
 window.FIREBASE_CONFIG = {
   apiKey: "AIzaSyCIB2FRO9r6io9QVinFpnAsADdgihsb26E",
   authDomain: "sukkot-tzafon-2026.firebaseapp.com",
@@ -730,6 +694,42 @@ function addItem(o){
   render();
   setItem(id,rec);
 }
+
+/* ---------- הרשימה הפרטית של המשפחה ---------- */
+const PKEY=()=>"sk-priv-"+me;
+function privLocalSave(){ try{ localStorage.setItem(PKEY(),JSON.stringify(priv)); }catch(e){} }
+function privLocalLoad(){
+  try{ const d=JSON.parse(localStorage.getItem(PKEY())||"null"); if(d) return {items:d.items||{},cats:d.cats||{}}; }catch(e){}
+  return {items:{},cats:{}};
+}
+function watchPrivate(){
+  if(privOff){ privOff(); privOff=null; }
+  priv={items:{},cats:{}};
+  if(!me){ render(); return; }
+  if(!fdb){ priv=privLocalLoad(); render(); return; }
+  const ref=fdb.ref("private/"+me);
+  const cb=ref.on("value",function(s){
+    const d=s.val()||{};
+    priv={items:d.items||{},cats:d.cats||{}};
+    render();
+  },function(){ priv=privLocalLoad(); render(); });
+  privOff=function(){ ref.off("value",cb); };
+}
+function pItem(id,val){
+  if(val===null) delete priv.items[id]; else priv.items[id]=val;
+  if(fdb&&me) wr(()=>fdb.ref("private/"+me+"/items/"+id).set(val)); else privLocalSave();
+  render();
+}
+function pCat(id,val){
+  if(val===null){
+    delete priv.cats[id];
+    Object.keys(priv.items).forEach(k=>{ if(priv.items[k].cat===id){ priv.items[k].cat=""; if(fdb&&me) wr(()=>fdb.ref("private/"+me+"/items/"+k+"/cat").set("")); } });
+  } else priv.cats[id]=val;
+  if(fdb&&me) wr(()=>fdb.ref("private/"+me+"/cats/"+id).set(val)); else privLocalSave();
+  render();
+}
+const privCats=()=>Object.keys(priv.cats||{}).map(k=>Object.assign({id:k},priv.cats[k])).sort((a,b)=>(a.o||0)-(b.o||0));
+const privItems=()=>Object.keys(priv.items||{}).map(k=>Object.assign({id:k},priv.items[k])).sort((a,b)=>(a.o||0)-(b.o||0));
 
 /* ---------- header ---------- */
 function paintHeader(){
